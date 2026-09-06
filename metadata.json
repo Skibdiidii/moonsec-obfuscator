@@ -1,0 +1,8 @@
+{
+  "name": "fsociety Executor",
+  "description": "A dark-themed floating IDE for generating optimized scripts using Mr Robot AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
