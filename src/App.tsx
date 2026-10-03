@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileNode, LogEntry, ScriptTemplate, Message, ChatSession, ObfuscatePreset, ObfuscateOptions, ObfuscationStats } from './types';
+import { FileNode, Message, ChatSession, ObfuscatePreset, ObfuscateOptions, ObfuscationStats } from './types';
 import { initialFiles } from './data';
 import { FileExplorer } from './components/FileExplorer';
 import { CodeEditorArea } from './components/CodeEditorArea';
@@ -7,10 +7,11 @@ import { AiChatPanel } from './components/AiChatPanel';
 import { ObfuscateModal } from './components/ObfuscateModal';
 import { FileUploaderModal } from './components/FileUploaderModal';
 import { WhatsNewModal } from './components/WhatsNewModal';
+import { ScriptVaultModal } from './components/ScriptVaultModal';
 import { motion, AnimatePresence } from 'motion/react';
-import { Code2, Bot, Search, Settings, PanelRightClose, PanelRightOpen, Terminal, Upload, Sparkles } from 'lucide-react';
+import { Code2, Bot, Search, PanelRightClose, PanelRightOpen, Upload, Sparkles, Database } from 'lucide-react';
 import './firebase';
-import { generateId, cn } from './utils';
+import { generateId } from './utils';
 
 const copyToClipboardFallback = (text: string): boolean => {
   try {
@@ -51,12 +52,42 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
 };
 
 export default function App() {
-  const [files, setFiles] = useState<FileNode[]>(initialFiles);
-  const [activeFileId, setActiveFileId] = useState<string | null>('main.server.lua');
-  const [code, setCode] = useState<Record<string, string>>({
-    'main.server.lua': initialFiles[0].children![0].content,
-    'player_handler.server.lua': initialFiles[0].children![1].content,
-    'settings.lua': initialFiles[1].children![0].content,
+  const [files, setFiles] = useState<FileNode[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fsociety_workspace_files');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return initialFiles;
+  });
+
+  const [activeFileId, setActiveFileId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fsociety_active_file');
+      if (saved) return saved;
+    }
+    return 'main.server.lua';
+  });
+
+  const [code, setCode] = useState<Record<string, string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fsociety_workspace_code');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') return parsed;
+        } catch (e) {}
+      }
+    }
+    return {
+      'main.server.lua': initialFiles[0].children![0].content,
+      'player_handler.server.lua': initialFiles[0].children![1].content,
+      'settings.lua': initialFiles[1].children![0].content,
+    };
   });
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,6 +95,7 @@ export default function App() {
   const [isObfuscateModalOpen, setIsObfuscateModalOpen] = useState(false);
   const [isUploaderModalOpen, setIsUploaderModalOpen] = useState(false);
   const [isWhatsNewModalOpen, setIsWhatsNewModalOpen] = useState(false);
+  const [isScriptVaultOpen, setIsScriptVaultOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [activeTab, setActiveTab] = useState<'explorer' | 'search' | 'none'>('explorer');
 
@@ -76,9 +108,47 @@ export default function App() {
   });
 
   useEffect(() => {
+    const syncServerWorkspace = async () => {
+      try {
+        const res = await fetch('/api/workspace');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.files && Array.isArray(data.files) && data.files.length > 0 && data.code) {
+            const localSaved = localStorage.getItem('fsociety_workspace_files');
+            if (!localSaved) {
+              setFiles(data.files);
+              setCode(data.code);
+              if (data.activeFileId) setActiveFileId(data.activeFileId);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    syncServerWorkspace();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fsociety_workspace_files', JSON.stringify(files));
+      localStorage.setItem('fsociety_workspace_code', JSON.stringify(code));
+      if (activeFileId) localStorage.setItem('fsociety_active_file', activeFileId);
+    }
+
+    const timer = setTimeout(() => {
+      fetch('/api/workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files, code, activeFileId })
+      }).catch(() => {});
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [files, code, activeFileId]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const lastSeen = localStorage.getItem('fsociety_last_seen_version');
-      if (!lastSeen || lastSeen !== 'v2.5.1') {
+      if (!lastSeen || lastSeen !== 'v2.6.0') {
         setIsWhatsNewModalOpen(true);
       }
     }
@@ -222,8 +292,8 @@ export default function App() {
 
   const handleSelectFile = (file: FileNode) => {
     setActiveFileId(file.id);
-    if (code[file.id] === undefined) {
-      setCode(prev => ({ ...prev, [file.id]: file.content }));
+    if (code[file.id] === undefined && file.content !== undefined) {
+      setCode(prev => ({ ...prev, [file.id]: file.content! }));
     }
   };
 
@@ -293,6 +363,63 @@ export default function App() {
     ]);
   };
 
+  const handleRestoreScript = (name: string, content: string) => {
+    const newNodes = [...files];
+    let targetFolder = newNodes.find(n => n.name === 'src' && n.type === 'folder');
+    if (!targetFolder) {
+      targetFolder = { id: 'src', name: 'src', type: 'folder', children: [] };
+      newNodes.unshift(targetFolder);
+    }
+
+    const existingIdx = targetFolder.children?.findIndex(c => c.name === name);
+    if (existingIdx !== undefined && existingIdx >= 0 && targetFolder.children) {
+      targetFolder.children[existingIdx].content = content;
+    } else if (targetFolder.children) {
+      targetFolder.children.push({
+        id: name,
+        name: name,
+        type: 'file',
+        content: content
+      });
+    }
+
+    setFiles(newNodes);
+    setCode(prev => ({ ...prev, [name]: content }));
+    setActiveFileId(name);
+    if (!showEditor) setShowEditor(true);
+
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: generateId(),
+        role: 'assistant',
+        content: `Restored **${name}** from Script Recovery Vault directly into your workspace editor.`
+      }
+    ]);
+  };
+
+  const handleRestoreFullWorkspace = (newFiles: FileNode[], newCode: Record<string, string>) => {
+    setFiles(newFiles);
+    setCode(newCode);
+    const first = newFiles[0]?.children?.[0]?.id || Object.keys(newCode)[0] || null;
+    if (first) setActiveFileId(first);
+    if (!showEditor) setShowEditor(true);
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: generateId(),
+        role: 'assistant',
+        content: 'Full workspace backup restored successfully.'
+      }
+    ]);
+  };
+
+  const handleNewFile = () => {
+    const newName = `Script_${Date.now().toString().slice(-4)}.lua`;
+    const defaultContent = `local Players = game:GetService("Players")\nprint("Roblox script initialized.")\n`;
+    handleRestoreScript(newName, defaultContent);
+  };
+
   const handleGenerateAI = async (prompt: string, modelName: string = selectedModel) => {
     if (!activeFileId) {
       setChatMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: 'Please select an active file from the Explorer first.' }]);
@@ -308,8 +435,7 @@ export default function App() {
         body: JSON.stringify({ 
           prompt, 
           currentCode: code[activeFileId],
-          modelName,
-          bypassLevel: 'stealth'
+          modelName
         })
       });
       
@@ -345,21 +471,30 @@ export default function App() {
   const handleLink = async () => {
     if (!currentCode) return;
     try {
-      const response = await fetch('/api/paste', {
+      const response = await fetch('/api/raw/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: currentCode })
+        body: JSON.stringify({ 
+          code: currentCode,
+          name: activeFileId || 'Script.lua'
+        })
       });
       const data = await response.json();
-      if (response.ok && data.url) {
-        const loadstringCode = `loadstring(game:HttpGet("${data.url}"))()`;
-        await copyTextToClipboard(loadstringCode);
-        setChatMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: `Raw link generated and copied to clipboard:\n\`\`\`lua\n${loadstringCode}\n\`\`\`` }]);
+      if (response.ok && data.loadstring) {
+        await copyTextToClipboard(data.loadstring);
+        setChatMessages(prev => [
+          ...prev, 
+          { 
+            id: generateId(), 
+            role: 'assistant', 
+            content: `**Roblox Raw Loadstring Generated & Copied to Clipboard!** 🚀\n\`\`\`lua\n${data.loadstring}\n\`\`\`\n\n- **Permanent Raw Link**: ${data.rawUrl}\n- **Anti-Scraper Shield**: Active (Blocks Python, web scrapers, and direct browser inspection)` 
+          }
+        ]);
       } else {
-        throw new Error(data.error || 'Unknown error');
+        throw new Error(data.error || 'Failed to upload script');
       }
     } catch (error: any) {
-      setChatMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: `Failed to generate link: ${error.message}` }]);
+      setChatMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: `Failed to generate raw link: ${error.message}` }]);
     }
   };
 
@@ -505,13 +640,22 @@ export default function App() {
         </div>
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button
+            onClick={() => setIsScriptVaultOpen(true)}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all shadow-sm"
+            title="Script Recovery Vault & Arsenal"
+          >
+            <Database size={14} className="text-indigo-400" />
+            <span className="hidden sm:inline">Script Vault</span>
+          </button>
+
+          <button
             onClick={() => setIsWhatsNewModalOpen(true)}
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500/10 to-indigo-500/10 hover:from-amber-500/20 hover:to-indigo-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 transition-all shadow-sm"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-rose-500/10 to-indigo-500/10 hover:from-rose-500/20 hover:to-indigo-500/20 text-rose-400 border border-rose-500/30 transition-all shadow-sm"
             title="View Release Notes"
           >
-            <Sparkles size={14} className="text-amber-400" />
+            <Sparkles size={14} className="text-rose-400" />
             <span className="hidden sm:inline">What's New</span>
-            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-amber-500/20">v2.5.0</span>
+            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300">v2.6.0</span>
           </button>
 
           <button
@@ -542,6 +686,14 @@ export default function App() {
            >
              <Code2 size={20} strokeWidth={1.5} />
            </button>
+
+           <button 
+             onClick={() => setIsScriptVaultOpen(true)}
+             className="p-2.5 rounded-lg transition-colors text-gray-500 hover:bg-gray-200 dark:hover:bg-white/5"
+             title="Script Vault & Backups"
+           >
+             <Database size={20} strokeWidth={1.5} />
+           </button>
            
            <button 
              onClick={() => setActiveTab(activeTab === 'search' && isMobile ? 'none' : 'search')}
@@ -569,6 +721,8 @@ export default function App() {
               onSelectFile={(f) => { handleSelectFile(f); if (isMobile) setActiveTab('none'); }} 
               activeFileId={activeFileId}
               onOpenUploader={() => setIsUploaderModalOpen(true)}
+              onOpenVault={() => setIsScriptVaultOpen(true)}
+              onNewFile={handleNewFile}
             />
           )}
 
@@ -627,9 +781,9 @@ export default function App() {
         isOpen={isObfuscateModalOpen}
         onClose={() => setIsObfuscateModalOpen(false)}
         onObfuscate={handleRunObfuscateModal}
-        onApplyCode={(code) => {
+        onApplyCode={(newCode) => {
           if (activeFileId) {
-            setCode(prev => ({ ...prev, [activeFileId]: code }));
+            setCode(prev => ({ ...prev, [activeFileId]: newCode }));
           }
         }}
         onCopyCode={handleCopy}
@@ -648,7 +802,15 @@ export default function App() {
         isOpen={isWhatsNewModalOpen}
         onClose={() => setIsWhatsNewModalOpen(false)}
       />
+
+      <ScriptVaultModal
+        isOpen={isScriptVaultOpen}
+        onClose={() => setIsScriptVaultOpen(false)}
+        onRestoreScript={handleRestoreScript}
+        onRestoreFullWorkspace={handleRestoreFullWorkspace}
+        currentFiles={files}
+        currentCode={code}
+      />
     </div>
   );
 }
-

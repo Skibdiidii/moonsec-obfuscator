@@ -3,7 +3,7 @@ import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-lua';
 import 'prismjs/themes/prism-tomorrow.css';
-import { Play, Download, Copy, Code2, Save, Link as LinkIcon, Shield, Lock, AlignLeft, Upload } from 'lucide-react';
+import { Download, Copy, Code2, Shield, Lock, AlignLeft, Upload, Globe } from 'lucide-react';
 
 function formatLua(code: string): string {
   const lines = code.split('\n');
@@ -161,9 +161,9 @@ export function CodeEditorArea({
             </button>
           )}
           {onLink && (
-            <button onClick={onLink} className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 border border-gray-200 dark:border-white/10 rounded-md transition-colors" title="Generate raw link">
-              <LinkIcon size={14} className="mr-1.5 text-blue-500" />
-              <span className="hidden lg:inline">Raw Link</span>
+            <button onClick={onLink} className="flex items-center px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-rose-500/20 rounded-md transition-colors shadow-sm" title="Generate protected Roblox loadstring">
+              <Globe size={14} className="mr-1.5 text-rose-500" />
+              <span className="hidden sm:inline">Roblox Raw</span>
             </button>
           )}
           {onSafeLink && (

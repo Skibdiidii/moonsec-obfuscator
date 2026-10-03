@@ -19,7 +19,7 @@ export function TemplatesLibrary({
     setActiveTab(initialTab);
   }, [initialTab]);
   
-  // Poly Haven State
+
   const [selectedCategory, setSelectedCategory] = useState<'hdris' | 'textures' | 'models'>('textures');
   const [polyhavenAssets, setPolyhavenAssets] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +27,6 @@ export function TemplatesLibrary({
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Fetch Poly Haven assets on category or tab switch
   useEffect(() => {
     if (activeTab !== 'polyhaven') return;
     
@@ -148,7 +147,7 @@ slab.MaterialVariant = "Fsociety_${assetId}"
 print("[Fsociety Compiler] Texture mapped. MaterialVariant created for: ${asset.name}")
 `;
     } else {
-      // models
+
       const w = asset.dimensions ? (asset.dimensions[0] / 100).toFixed(2) : '8.50';
       const h = asset.dimensions ? (asset.dimensions[1] / 100).toFixed(2) : '7.60';
       const d = asset.dimensions ? (asset.dimensions[2] / 100).toFixed(2) : '10.60';
@@ -197,13 +196,11 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
     }
   };
 
-  // Filter templates list
   const filteredTemplates = templates.filter(t => 
     t.name.toLowerCase().includes(search.toLowerCase()) || 
     t.description.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Parse and filter Poly Haven list
   const assetList = Object.entries(polyhavenAssets).map(([id, details]) => ({
     id,
     ...details
@@ -217,7 +214,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
 
   return (
     <div className="flex flex-col h-full shrink-0 w-full bg-[#060609]">
-      {/* Tab Selectors */}
+      
       <div className="grid grid-cols-2 border-b border-white/5 bg-black/40 shrink-0">
         <button
           type="button"
@@ -246,7 +243,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
         </button>
       </div>
 
-      {/* Asset Provider Indicator for Real Roblox Studio */}
+      
       {activeTab === 'polyhaven' && (
         <div className="px-3 py-1 bg-emerald-950/10 border-b border-white/5 flex items-center justify-between text-[9px] font-mono text-emerald-500 shrink-0 select-none">
           <div className="flex items-center space-x-1">
@@ -257,7 +254,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
         </div>
       )}
 
-      {/* Search & Categories Box */}
+      
       <div className="p-3 border-b border-white/5 bg-black/20 shrink-0 space-y-2">
         <div className="relative">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -270,7 +267,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
           />
         </div>
 
-        {/* Category toggles for Poly Haven */}
+        
         {activeTab === 'polyhaven' && (
           <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
             <button
@@ -316,10 +313,10 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
         )}
       </div>
       
-      {/* Main Assets Content Panel */}
+      
       <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
         {activeTab === 'templates' ? (
-          // Tab 1: Original Script Templates List
+
           <>
             {filteredTemplates.map(template => (
               <div key={template.id} className="bg-black/20 border border-white/5 rounded-md p-2.5 hover:bg-white/5 hover:border-white/10 transition-all group">
@@ -363,7 +360,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
             )}
           </>
         ) : (
-          // Tab 2: Real Roblox Studio (Poly Haven) List
+
           <>
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500 font-mono space-y-2">
@@ -379,7 +376,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
                 <button
                   type="button"
                   onClick={() => {
-                    // Force refresh registry
+
                     setPolyhavenAssets({});
                     setSelectedCategory(selectedCategory);
                   }}
@@ -408,7 +405,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
                       : "border-white/5 bg-black/20 hover:border-white/10 hover:bg-white/5"
                   )}
                 >
-                  {/* Asset Card Header */}
+                  
                   <div 
                     onClick={() => setExpandedAssetId(isExpanded ? null : asset.id)}
                     className="p-2 flex items-center space-x-2.5 cursor-pointer select-none"
@@ -443,7 +440,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
                     </div>
                   </div>
 
-                  {/* Expandable Details Area */}
+                  
                   {isExpanded && (
                     <div className="px-2.5 pb-2.5 pt-0.5 border-t border-white/5 bg-black/40 font-mono text-[10px] text-gray-400 space-y-2">
                       <p className="text-[9px] text-gray-500 leading-normal italic">
@@ -468,7 +465,7 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
                         </div>
                       </div>
 
-                      {/* Compilation Actions */}
+                      
                       <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                         <button
                           type="button"
@@ -507,4 +504,3 @@ print("[Fsociety Compiler] Mesh element spawned: ${asset.name}")
     </div>
   );
 }
-

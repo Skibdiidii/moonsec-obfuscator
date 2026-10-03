@@ -10,7 +10,7 @@ export const initialFiles: FileNode[] = [
         id: 'main.server.lua',
         name: 'Main.server.lua',
         type: 'file',
-        content: '-- Fsociety Initialization\nprint("Hello, friend. Server Started.")\n',
+        content: 'print("Hello, friend. Server Started.")\n',
       },
       {
         id: 'player_handler.server.lua',
@@ -48,7 +48,7 @@ export const templates: ScriptTemplate[] = [
     name: 'Datastore Secure Save',
     description: 'Robust datastore saving logic',
     author: 'Fsociety',
-    code: 'local DataStoreService = game:GetService("DataStoreService")\nlocal PlayerData = DataStoreService:GetDataStore("PlayerData_V1")\n\n-- Optimized Save Function\nlocal function SaveData(player)\n\tpcall(function()\n\t\t-- Logic here\n\tend)\nend',
+    code: 'local DataStoreService = game:GetService("DataStoreService")\nlocal PlayerData = DataStoreService:GetDataStore("PlayerData_V1")\n\nlocal function SaveData(player)\n\tpcall(function()\n\t\tPlayerData:SetAsync(player.UserId, { Level = 100 })\n\tend)\nend',
   },
   {
     id: 't3',

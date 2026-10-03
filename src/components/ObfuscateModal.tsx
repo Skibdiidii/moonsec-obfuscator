@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Shield, Zap, Skull, Cpu, Check, X, Lock, Copy, Download, Link as LinkIcon, 
-  BarChart2, RefreshCw, FileText, CheckCircle2, AlertTriangle, ChevronRight
+  Shield, Zap, Skull, Cpu, Check, X, Lock, Copy, Download,
+  BarChart2, RefreshCw, CheckCircle2, Globe, Terminal, Loader2
 } from 'lucide-react';
 import { ObfuscatePreset, ObfuscateOptions, ObfuscationStats } from '../types';
 
@@ -24,7 +24,6 @@ export function ObfuscateModal({
   onApplyCode,
   onCopyCode,
   onDownloadCode,
-  onSafeLink,
   currentCode
 }: ObfuscateModalProps) {
   const [selectedPreset, setSelectedPreset] = useState<ObfuscatePreset>('Balanced');
@@ -45,6 +44,10 @@ export function ObfuscateModal({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingToRaw, setIsUploadingToRaw] = useState(false);
+  const [rawLoadstring, setRawLoadstring] = useState<string | null>(null);
+  const [rawUrl, setRawUrl] = useState<string | null>(null);
+  const [hasCopiedLoadstring, setHasCopiedLoadstring] = useState(false);
   const [obfuscatedResult, setObfuscatedResult] = useState<{ code: string; stats: ObfuscationStats } | null>(null);
 
   const presets: { id: ObfuscatePreset; name: string; icon: any; desc: string; color: string }[] = [
@@ -117,6 +120,8 @@ export function ObfuscateModal({
 
   const handleRunObfuscation = async () => {
     setIsLoading(true);
+    setRawLoadstring(null);
+    setRawUrl(null);
     try {
       const result = await onObfuscate(selectedPreset, options);
       setObfuscatedResult(result);
@@ -124,6 +129,33 @@ export function ObfuscateModal({
       console.error('Obfuscation modal run failed:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateRawLoadstring = async () => {
+    if (!obfuscatedResult) return;
+    setIsUploadingToRaw(true);
+    try {
+      const res = await fetch('/api/raw/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: obfuscatedResult.code,
+          name: `Protected_${selectedPreset}_Script.lua`
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.loadstring) {
+        setRawLoadstring(data.loadstring);
+        setRawUrl(data.rawUrl);
+        navigator.clipboard.writeText(data.loadstring);
+        setHasCopiedLoadstring(true);
+        setTimeout(() => setHasCopiedLoadstring(false), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUploadingToRaw(false);
     }
   };
 
@@ -142,7 +174,6 @@ export function ObfuscateModal({
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           className="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]"
         >
-          {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 bg-zinc-950/60 shrink-0">
             <div className="flex items-center space-x-2.5 sm:space-x-3">
               <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
@@ -150,7 +181,7 @@ export function ObfuscateModal({
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-1.5 sm:gap-2">
-                  Fsociety Obfuscator <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">v6.0</span>
+                  Fsociety Obfuscator <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono">v6.0</span>
                 </h2>
                 <p className="text-[11px] sm:text-xs text-zinc-400 line-clamp-1">Commercial-grade Luau & Lua 5.1 Protection Pipeline</p>
               </div>
@@ -164,7 +195,6 @@ export function ObfuscateModal({
           </div>
 
           <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 custom-scrollbar flex-1">
-            {/* Presets Selection */}
             <div>
               <label className="block text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2.5">
                 Protection Profile Presets
@@ -195,7 +225,6 @@ export function ObfuscateModal({
               </div>
             </div>
 
-            {/* Granular Toggles */}
             <div>
               <label className="block text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2.5">
                 Security Protections & Transforms
@@ -241,7 +270,6 @@ export function ObfuscateModal({
               </div>
             </div>
 
-            {/* Obfuscated Build Statistics Output */}
             {obfuscatedResult && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -283,11 +311,39 @@ export function ObfuscateModal({
                     {formatKB(obfuscatedResult.stats.originalSize)} → {formatKB(obfuscatedResult.stats.obfuscatedSize)}
                   </span>
                 </div>
+
+                {rawLoadstring && (
+                  <div className="mt-3 p-3 bg-black/80 rounded-xl border border-rose-500/30 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-rose-400">
+                      <span className="flex items-center gap-1.5">
+                        <Terminal size={14} />
+                        <span>Protected Roblox Loadstring Generated</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Anti-Scraper Active</span>
+                    </div>
+                    <div className="font-mono text-xs text-emerald-300 bg-zinc-950 p-2 rounded-lg border border-white/5 truncate select-all">
+                      {rawLoadstring}
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                      <span className="truncate max-w-sm">Raw: {rawUrl}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(rawLoadstring);
+                          setHasCopiedLoadstring(true);
+                          setTimeout(() => setHasCopiedLoadstring(false), 2000);
+                        }}
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs flex items-center gap-1 font-medium transition-colors"
+                      >
+                        {hasCopiedLoadstring ? <Check size={12} className="text-emerald-300" /> : <Copy size={12} />}
+                        <span>{hasCopiedLoadstring ? 'Copied!' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
 
-          {/* Footer Actions */}
           <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-white/10 bg-zinc-950/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 shrink-0">
             <button
               onClick={handleRunObfuscation}
@@ -308,7 +364,20 @@ export function ObfuscateModal({
             </button>
 
             {obfuscatedResult && (
-              <div className="grid grid-cols-3 sm:flex items-center gap-2">
+              <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                <button
+                  onClick={handleGenerateRawLoadstring}
+                  disabled={isUploadingToRaw}
+                  className="flex items-center justify-center px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-medium transition-colors min-h-[40px] shadow-sm"
+                  title="Upload protected script to persistent Roblox raw endpoint"
+                >
+                  {isUploadingToRaw ? (
+                    <Loader2 size={13} className="animate-spin mr-1" />
+                  ) : (
+                    <Globe size={13} className="mr-1" />
+                  )}
+                  <span>Roblox Loadstring</span>
+                </button>
                 <button
                   onClick={() => {
                     onApplyCode(obfuscatedResult.code);

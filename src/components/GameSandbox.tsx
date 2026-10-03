@@ -34,7 +34,6 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
   group.name = obj.name;
   const name = (obj.name || "").toLowerCase();
 
-  // Helper to add child mesh with standard properties
   const createBlock = (w: number, h: number, d: number, color: number, posY: number = 0, posX: number = 0, posZ: number = 0, rotX: number = 0, rotY: number = 0, rotZ: number = 0): THREE.Mesh => {
     const geo = new THREE.BoxGeometry(w, h, d);
     const mat = new THREE.MeshStandardMaterial({
@@ -82,16 +81,14 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
     return mesh;
   };
 
-  // We customize the colors of our model elements:
   const themeColor = obj.color ? parseInt(obj.color.replace('#', '0x')) : 0x0891B2;
 
-  // Pattern Matching for 3D Assemblies
   if (name.includes('chair') || name.includes('stool') || name.includes('bench') || name.includes('sofa') || name.includes('seat')) {
-    // 3D CHAIRS & SEATS ASSEMBLY
-    const wood = obj.color ? themeColor : 0x7c2d12; // deep warm redwood/brown
-    const cushion = 0x1e293b; // slate charcoal cushion
+
+    const wood = obj.color ? themeColor : 0x7c2d12;
+    const cushion = 0x1e293b;
     
-    // Legs
+
     const legW = 0.08;
     const legH = 0.6;
     createBlock(legW, legH, legW, wood, -0.3 + legH/2, -0.35, -0.35);
@@ -99,58 +96,54 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
     createBlock(legW, legH, legW, wood, -0.3 + legH/2, -0.35, 0.35);
     createBlock(legW, legH, legW, wood, -0.3 + legH/2, 0.35, 0.35);
 
-    // Seat Board
     createBlock(0.9, 0.1, 0.9, wood, 0.35, 0, 0);
-    // Cushion
+
     createBlock(0.82, 0.08, 0.82, cushion, 0.41, 0, 0);
 
-    // Backrest supports
     const backH = 0.8;
     createBlock(0.08, backH, 0.08, wood, 0.35 + backH/2, -0.35, -0.35);
     createBlock(0.08, backH, 0.08, wood, 0.35 + backH/2, 0.35, -0.35);
-    // Backrest slats
+
     createBlock(0.65, 0.22, 0.06, wood, 0.9, 0, -0.35);
     createBlock(0.65, 0.15, 0.06, cushion, 0.65, 0, -0.35);
 
   } else if (name.includes('gun') || name.includes('cannon') || name.includes('blunderbuss') || name.includes('rifle') || name.includes('pistol') || name.includes('weapon') || name.includes('blaster') || name.includes('revolver')) {
-    // 3D WEAPONS & BLASTER ASSEMBLY
-    const metal = 0x374151; // steel gray
-    const accent = obj.color ? themeColor : 0xeab308; // neon theme or gold brass
-    const stock = 0x451a03; // mahogany wood stock
+
+    const metal = 0x374151;
+    const accent = obj.color ? themeColor : 0xeab308;
+    const stock = 0x451a03;
 
     if (name.includes('cannon')) {
-      // Magnificent Historic Field Cannon
+
       createCylinder(0.18, 0.25, 1.6, metal, 0.4, 0, 0, Math.PI / 2, 0, 0);
-      createCylinder(0.24, 0.24, 0.1, accent, 0.4, 0, -0.75, Math.PI / 2, 0, 0); // back rim
-      createCylinder(0.2, 0.2, 0.08, accent, 0.4, 0, 0.75, Math.PI / 2, 0, 0); // tip rim
-      createSphere(0.12, metal, 0.4, 0, -0.85); // fuse sphere
+      createCylinder(0.24, 0.24, 0.1, accent, 0.4, 0, -0.75, Math.PI / 2, 0, 0);
+      createCylinder(0.2, 0.2, 0.08, accent, 0.4, 0, 0.75, Math.PI / 2, 0, 0);
+      createSphere(0.12, metal, 0.4, 0, -0.85);
       
-      // Wooden carriages
+
       createBlock(0.7, 0.4, 1.2, stock, 0.1, 0, -0.1);
       
-      // Giant gold-trimmed wooden wheels
+
       const wRad = 0.45;
       createCylinder(wRad, wRad, 0.12, accent, 0.15, -0.42, 0, 0, 0, Math.PI / 2);
       createCylinder(wRad, wRad, 0.12, accent, 0.15, 0.42, 0, 0, 0, Math.PI / 2);
       createCylinder(wRad - 0.08, wRad - 0.08, 0.16, stock, 0.15, -0.42, 0, 0, 0, Math.PI / 2);
       createCylinder(wRad - 0.08, wRad - 0.08, 0.16, stock, 0.15, 0.42, 0, 0, 0, Math.PI / 2);
     } else {
-      // Compact Handgun or Long rifle
+
       const isRifle = name.includes('rifle') || name.includes('blunderbuss');
       const bLen = isRifle ? 1.4 : 0.7;
 
-      // Barrel (aligned along Z axis, extending forward)
       createCylinder(0.06, 0.06, bLen, metal, 0.25, 0, bLen / 4, Math.PI / 2, 0, 0);
-      // Scope attachment
+
       createCylinder(0.03, 0.03, bLen * 0.4, metal, 0.36, 0, 0, Math.PI / 2, 0, 0);
       createBlock(0.02, 0.06, 0.02, accent, 0.32, 0, -bLen * 0.1);
       createBlock(0.02, 0.06, 0.02, accent, 0.32, 0, bLen * 0.1);
 
-      // Gun Receiver Body
       createBlock(0.14, 0.22, bLen * 0.4, stock, 0.18, 0, -bLen * 0.15);
-      // Grip Handle
+
       createBlock(0.1, 0.32, 0.1, stock, -0.05, 0, -bLen * 0.25, 0.25, 0, 0);
-      // Trigger details
+
       createBlock(0.02, 0.1, 0.12, accent, 0.05, 0, -bLen * 0.08);
 
       if (name.includes('blunderbuss') || name.includes('shotgun')) {
@@ -161,19 +154,19 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
     }
 
   } else if (name.includes('sword') || name.includes('blade') || name.includes('dagger') || name.includes('knife') || name.includes('axe') || name.includes('mace') || name.includes('shield') || name.includes('spear')) {
-    // 3D MELEE WEAPONS & SHIELDS
-    const steel = 0xf3f4f6; // silver steel
-    const gold = 0xd97706; // brass gold highlights
-    const handle = 0x451a03; // leather grip
+
+    const steel = 0xf3f4f6;
+    const gold = 0xd97706;
+    const handle = 0x451a03;
 
     if (name.includes('shield')) {
       createCylinder(0.65, 0.65, 0.08, steel, 0.2, 0, 0, Math.PI / 2, 0, 0);
-      createCylinder(0.45, 0.45, 0.1, obj.color ? themeColor : 0xb91c1c, 0.2, 0, 0, Math.PI / 2, 0, 0); // colored crest
-      createSphere(0.12, gold, 0.2, 0, 0.05); // center steel spike
-      createBlock(0.06, 0.32, 0.04, handle, 0.2, 0, -0.06); // back handler
+      createCylinder(0.45, 0.45, 0.1, obj.color ? themeColor : 0xb91c1c, 0.2, 0, 0, Math.PI / 2, 0, 0);
+      createSphere(0.12, gold, 0.2, 0, 0.05);
+      createBlock(0.06, 0.32, 0.04, handle, 0.2, 0, -0.06);
     } else if (name.includes('axe')) {
       createCylinder(0.05, 0.05, 1.5, handle, 0.15, 0, 0);
-      createCylinder(0.07, 0.07, 0.18, gold, 0.7, 0, 0); // hilt bands
+      createCylinder(0.07, 0.07, 0.18, gold, 0.7, 0, 0);
       createCylinder(0.07, 0.07, 0.18, gold, -0.4, 0, 0);
       
       createBlock(0.7, 0.5, 0.04, steel, 0.52, 0.35, 0);
@@ -187,7 +180,7 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
       createCylinder(0.04, 0.04, 0.35, handle, -0.3, 0, 0);
       createSphere(0.07, gold, -0.48, 0, 0);
       createBlock(0.45, 0.06, 0.1, gold, -0.1, 0, 0);
-      createSphere(0.06, obj.color ? themeColor : 0x06b6d4, -0.1, 0, 0.04); // center element socket
+      createSphere(0.06, obj.color ? themeColor : 0x06b6d4, -0.1, 0, 0.04);
 
       createBlock(0.09, bLen, 0.03, steel, -0.1 + bLen / 2, 0, 0);
       createBlock(0.015, bLen * 0.85, 0.04, obj.color ? themeColor : 0x06b6d4, -0.1 + bLen * 0.45, 0, 0);
@@ -196,7 +189,7 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
 
   } else if (name.includes('table') || name.includes('desk') || name.includes('bench') || name.includes('counter') || name.includes('shelf') || name.includes('cabinet')) {
     const mahogany = 0x451a03; 
-    const support = 0x1f2937; // powder coated iron
+    const support = 0x1f2937;
 
     const width = 1.8;
     const depth = 1.0;
@@ -218,9 +211,9 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
     }
 
   } else if (name.includes('chest') || name.includes('box') || name.includes('crate') || name.includes('barrel') || name.includes('container') || name.includes('case')) {
-    const wood = obj.color ? themeColor : 0x854d0e; // rich raw timber
-    const bands = 0x111827; // dark steel strapping bands
-    const lock = 0xeab308; // heavy gold lock
+    const wood = obj.color ? themeColor : 0x854d0e;
+    const bands = 0x111827;
+    const lock = 0xeab308;
 
     if (name.includes('barrel')) {
       createCylinder(0.42, 0.48, 1.0, wood, 0.5, 0, 0);
@@ -233,19 +226,19 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
       createBlock(1.22, 0.52, 0.04, bands, 0.25, 0, -0.38);
       
       createBlock(1.2, 0.3, 0.8, wood, 0.65, 0, 0);
-      createBlock(1.15, 0.12, 0.75, bands, 0.8, 0, 0); // strap down center
+      createBlock(1.15, 0.12, 0.75, bands, 0.8, 0, 0);
       
       createBlock(0.15, 0.2, 0.06, lock, 0.4, 0, 0.4);
-      createSphere(0.04, 0x020617, 0.36, 0, 0.42); // keyhole
+      createSphere(0.04, 0x020617, 0.36, 0, 0.42);
     } else {
       createBlock(1.0, 1.0, 1.0, wood, 0.5, 0, 0);
       
       const fW = 0.08;
       const fD = 1.02;
-      createBlock(fD, fW, fD, bands, 0.05, 0, 0); // bottom band
-      createBlock(fD, fW, fD, bands, 0.95, 0, 0); // top band
-      createBlock(fW, 0.8, fD, bands, 0.5, -0.46, 0); // left vertical
-      createBlock(fW, 0.8, fD, bands, 0.5, 0.46, 0); // right vertical
+      createBlock(fD, fW, fD, bands, 0.05, 0, 0);
+      createBlock(fD, fW, fD, bands, 0.95, 0, 0);
+      createBlock(fW, 0.8, fD, bands, 0.5, -0.46, 0);
+      createBlock(fW, 0.8, fD, bands, 0.5, 0.46, 0);
       
       createBlock(1.15, fW, 0.03, bands, 0.5, 0, 0.51, 0, 0, Math.PI / 4);
       createBlock(1.15, fW, 0.03, bands, 0.5, 0, -0.51, 0, 0, -Math.PI / 4);
@@ -354,7 +347,6 @@ function createProceduralModel(obj: SandboxObject): THREE.Object3D {
     createSphere(0.06, led, 0.15, 0, 0.47); 
   }
 
-  // Adjust overall scale
   if (obj.dimensions) {
     const scaleFactor = 0.35;
     group.scale.set(
@@ -404,8 +396,7 @@ export function GameSandbox({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const loadingAssetIdsRef = useRef<Set<string>>(new Set());
 
-  // Viewport & Physics state
-  const [clockTime, setClockTime] = useState<number>(14); // 24-hour cycle
+  const [clockTime, setClockTime] = useState<number>(14);
   const [isFlying, setIsFlying] = useState(false);
   const [aimbotActive, setAimbotActive] = useState(false);
   const [showF9Console, setShowF9Console] = useState(true);
@@ -413,21 +404,17 @@ export function GameSandbox({
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
   const [isLocalFullscreen, setIsLocalFullscreen] = useState(false);
 
-  // Roblox dynamic states
   const [luauInput, setLuauInput] = useState('');
   const [showCheatSheet, setShowCheatSheet] = useState(false);
 
-  // Attributes states
   const [newAttrKey, setNewAttrKey] = useState('');
   const [newAttrType, setNewAttrType] = useState<'String' | 'Number' | 'Boolean'>('String');
   const [newAttrVal, setNewAttrVal] = useState('');
   const [isAddingAttr, setIsAddingAttr] = useState(false);
 
-  // Tags states
   const [newTagInput, setNewTagInput] = useState('');
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
 
-  // Toggle fullscreen function
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     
@@ -442,13 +429,12 @@ export function GameSandbox({
           setIsLocalFullscreen(true);
         })
         .catch(() => {
-          // Fallback if browser fullscreen is blocked in iframe
+
           setIsLocalFullscreen(true);
         });
     }
   };
 
-  // Sync state if user exits via Esc key in browser fullscreen mode
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFs = !!document.fullscreenElement && document.fullscreenElement === containerRef.current;
@@ -474,7 +460,6 @@ export function GameSandbox({
         command = command.trim();
         if (!command || command.startsWith('--')) continue;
 
-        // 1. Instance creation: Instance.new("Part")
         const instanceNewMatch = command.match(/Instance\.new\(\s*["'](\w+)["']\s*\)/i);
         if (instanceNewMatch) {
           const className = instanceNewMatch[1];
@@ -517,7 +502,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 2. Loop execution: for i = 1, N do Instance.new("Part") end
         const loopMatch = command.match(/for\s+i\s*=\s*1\s*,\s*(\d+)\s+do\s+(.*?)\s+end/i);
         if (loopMatch) {
           const iterations = parseInt(loopMatch[1]);
@@ -541,7 +525,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 3. Method execution: SetAttribute
         const setAttrMatch = command.match(/workspace\.([\w-]+):SetAttribute\(\s*["']([^"']+)["']\s*,\s*(.*?)\s*\)/i) || 
                              command.match(/game\.Workspace\.([\w-]+):SetAttribute\(\s*["']([^"']+)["']\s*,\s*(.*?)\s*\)/i);
         if (setAttrMatch) {
@@ -566,7 +549,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 4. Method execution: GetAttribute
         const getAttrMatch = command.match(/workspace\.([\w-]+):GetAttribute\(\s*["']([^"']+)["']\s*\)/i) || 
                              command.match(/game\.Workspace\.([\w-]+):GetAttribute\(\s*["']([^"']+)["']\s*\)/i);
         if (getAttrMatch) {
@@ -582,7 +564,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 5. CollectionService:AddTag
         const addTagMatch = command.match(/workspace\.([\w-]+):AddTag\(\s*["']([^"']+)["']\s*\)/i) || 
                             command.match(/game\.Workspace\.([\w-]+):AddTag\(\s*["']([^"']+)["']\s*\)/i) ||
                             command.match(/CollectionService:AddTag\(\s*(?:workspace|game\.Workspace)\.([\w-]+)\s*,\s*["']([^"']+)["']\s*\)/i);
@@ -601,7 +582,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 6. CollectionService:RemoveTag
         const removeTagMatch = command.match(/workspace\.([\w-]+):RemoveTag\(\s*["']([^"']+)["']\s*\)/i) || 
                                command.match(/game\.Workspace\.([\w-]+):RemoveTag\(\s*["']([^"']+)["']\s*\)/i) ||
                                command.match(/CollectionService:RemoveTag\(\s*(?:workspace|game\.Workspace)\.([\w-]+)\s*,\s*["']([^"']+)["']\s*\)/i);
@@ -620,8 +600,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 7. Property assignments
-        // 7a. Name renames
         const renameMatch = command.match(/workspace\.([\w-]+)\.Name\s*=\s*["']([^"']+)["']/i) || 
                             command.match(/game\.Workspace\.([\w-]+)\.Name\s*=\s*["']([^"']+)["']/i);
         if (renameMatch) {
@@ -638,7 +616,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 7b. Color3 assignments
         const colorMatch = command.match(/workspace\.([\w-]+)\.Color\s*=\s*(.*)/i) || 
                            command.match(/game\.Workspace\.([\w-]+)\.Color\s*=\s*(.*)/i);
         if (colorMatch) {
@@ -674,7 +651,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 7c. Vector3 Size assignments
         const sizeMatch = command.match(/workspace\.([\w-]+)\.Size\s*=\s*(.*)/i) || 
                            command.match(/game\.Workspace\.([\w-]+)\.Size\s*=\s*(.*)/i);
         if (sizeMatch) {
@@ -697,7 +673,6 @@ export function GameSandbox({
           continue;
         }
 
-        // 7d. Lighting ClockTime assignments
         const clockMatch = command.match(/game\.Lighting\.ClockTime\s*=\s*(\d+)/i) || 
                            command.match(/game:GetService\(\s*["']Lighting["']\s*\)\.ClockTime\s*=\s*(\d+)/i);
         if (clockMatch) {
@@ -707,14 +682,12 @@ export function GameSandbox({
           continue;
         }
 
-        // 8. General printing: print("msg")
         const printMatch = command.match(/print\(\s*["']?([^"']*)["']?\s*\)/i);
         if (printMatch) {
           onAddLog(`[Print] ${printMatch[1]}`, 'info');
           continue;
         }
 
-        // 9. Unrecognized commands
         onAddLog(`[Luau Error] Unknown or unsupported command: "${command}"`, 'error');
       }
     } catch (err: any) {
@@ -723,19 +696,16 @@ export function GameSandbox({
     setLuauInput('');
   };
 
-  // Player position in virtual 3D coords
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0.5, z: 0 });
   const [playerTargetY, setPlayerTargetY] = useState(0.5);
   const [keysPressed, setKeysPressed] = useState<Record<string, boolean>>({});
   const [joystickDir, setJoystickDir] = useState<{ x: number; y: number } | null>(null);
 
-  // Target practice dummies (for aimbot)
   const [targets, setTargets] = useState<Array<{ id: string; x: number; y: number; z: number; health: number; maxHealth: number; pulse: number }>>([]);
 
   const [activeLaser, setActiveLaser] = useState<{ from: { x: number; y: number }; to: { x: number; y: number }; targetId: string } | null>(null);
   const [damageNumbers, setDamageNumbers] = useState<Array<{ id: string; x: number; y: number; text: string; age: number }>>([]);
 
-  // Auto-detect flight & aimbot in active script
   useEffect(() => {
     const codeLower = activeCode.toLowerCase();
     if (codeLower.includes('fly') || codeLower.includes('flight') || codeLower.includes('float')) {
@@ -753,7 +723,6 @@ export function GameSandbox({
     }
   }, [activeCode]);
 
-  // Handle keys for player WASD movement
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
@@ -777,7 +746,6 @@ export function GameSandbox({
     };
   }, []);
 
-  // Refs for high-performance Three.js rendering
   const clockTimeRef = useRef(clockTime);
   const isFlyingRef = useRef(isFlying);
   const aimbotActiveRef = useRef(aimbotActive);
@@ -798,7 +766,6 @@ export function GameSandbox({
   useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
   useEffect(() => { playerTargetYRef.current = playerTargetY; }, [playerTargetY]);
 
-  // Three.js 3D Virtual Workspace simulation loop
   useEffect(() => {
     let animId: number;
     let frameCount = 0;
@@ -806,7 +773,6 @@ export function GameSandbox({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Initialize Scene, Camera, Renderer
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
     camera.position.set(15, 12, 18);
@@ -817,18 +783,16 @@ export function GameSandbox({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // OrbitControls for modern, responsive, cross-platform camera control (mobile, tablet, desktop)
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = true;
-    controls.maxPolarAngle = Math.PI / 2 - 0.01; // Avoid camera clipping below baseplate
+    controls.maxPolarAngle = Math.PI / 2 - 0.01;
     controls.minDistance = 2;
     controls.maxDistance = 100;
     controls.target.set(0, 0.5, 0);
     controls.update();
 
-    // Resize Handler
     const resizeCanvas = () => {
       if (!containerRef.current || !canvas) return;
       const rect = containerRef.current.getBoundingClientRect();
@@ -842,7 +806,6 @@ export function GameSandbox({
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Setup Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
@@ -860,10 +823,9 @@ export function GameSandbox({
     dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
-    // Setup Baseplate (Classic Roblox Studio Gray Baseplate)
     const baseplateGeo = new THREE.BoxGeometry(80, 0.5, 80);
     const baseplateMat = new THREE.MeshStandardMaterial({
-      color: 0xa1a1aa, // elegant neutral gray
+      color: 0xa1a1aa,
       roughness: 0.9,
       metalness: 0.1
     });
@@ -872,12 +834,10 @@ export function GameSandbox({
     baseplate.receiveShadow = true;
     scene.add(baseplate);
 
-    // Add Grid overlay (Roblox style studs grid)
     const gridHelper = new THREE.GridHelper(80, 80, 0x71717a, 0xd4d4d8);
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Starfield Particle system for Night sky
     const starsCount = 150;
     const starsGeo = new THREE.BufferGeometry();
     const starsPos = new Float32Array(starsCount * 3);
@@ -896,20 +856,17 @@ export function GameSandbox({
     const starfield = new THREE.Points(starsGeo, starsMat);
     scene.add(starfield);
 
-    // Aimbot Laser cylinder
     const laserGeo = new THREE.CylinderGeometry(0.04, 0.04, 1, 8);
-    laserGeo.translate(0, 0.5, 0); // pivot bottom
-    laserGeo.rotateX(Math.PI / 2); // along Z
+    laserGeo.translate(0, 0.5, 0);
+    laserGeo.rotateX(Math.PI / 2);
     const laserMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.9 });
     const laserMesh = new THREE.Mesh(laserGeo, laserMat);
     laserMesh.visible = false;
     scene.add(laserMesh);
 
-    // Player Group Setup (Roblox classic blocky character)
     const playerGroup = new THREE.Group();
     scene.add(playerGroup);
 
-    // Yellow head
     const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
     const headMat = new THREE.MeshStandardMaterial({ color: 0xFCD34D, roughness: 0.5 });
     const headMesh = new THREE.Mesh(headGeo, headMat);
@@ -917,7 +874,6 @@ export function GameSandbox({
     headMesh.castShadow = true;
     playerGroup.add(headMesh);
 
-    // Custom Emerald green hoodie cap
     const hoodGeo = new THREE.BoxGeometry(0.54, 0.35, 0.54);
     const hoodMat = new THREE.MeshStandardMaterial({ color: 0x065F46, roughness: 0.5 });
     const hoodMesh = new THREE.Mesh(hoodGeo, hoodMat);
@@ -925,7 +881,6 @@ export function GameSandbox({
     hoodMesh.castShadow = true;
     playerGroup.add(hoodMesh);
 
-    // Emerald Green hoodie torso
     const torsoGeo = new THREE.BoxGeometry(0.8, 1.0, 0.4);
     const torsoMat = new THREE.MeshStandardMaterial({ color: 0x065F46, roughness: 0.6 });
     const torsoMesh = new THREE.Mesh(torsoGeo, torsoMat);
@@ -934,7 +889,6 @@ export function GameSandbox({
     torsoMesh.receiveShadow = true;
     playerGroup.add(torsoMesh);
 
-    // Limbs Setup
     const legGeo = new THREE.BoxGeometry(0.35, 0.7, 0.35);
     const legMat = new THREE.MeshStandardMaterial({ color: 0x4B5563, roughness: 0.7 });
     
@@ -957,11 +911,9 @@ export function GameSandbox({
     rightArm.castShadow = true;
     playerGroup.add(rightArm);
 
-    // Maps for spawned assets & target practice dummies
     const partMeshes = new Map<string, THREE.Object3D>();
     const targetMeshes = new Map<string, THREE.Group>();
 
-    // Helper to create a 3D target practice dummy
     const createTargetDummy = (t: typeof targets[0]) => {
       const group = new THREE.Group();
 
@@ -993,7 +945,6 @@ export function GameSandbox({
       targetMeshes.set(t.id, group);
     };
 
-    // Flying particles structures
     interface FlyParticle {
       mesh: THREE.Mesh;
       velocity: THREE.Vector3;
@@ -1002,7 +953,6 @@ export function GameSandbox({
     }
     const particles: FlyParticle[] = [];
 
-    // Screen projector helper
     const tempProjV = new THREE.Vector3();
     const projectToScreen = (pos3d: THREE.Vector3, out: { x: number; y: number }) => {
       tempProjV.copy(pos3d).project(camera);
@@ -1012,7 +962,6 @@ export function GameSandbox({
       return true;
     };
 
-    // Floating HTML damage numbers animations
     interface DamageItem {
       element: HTMLDivElement;
       pos: THREE.Vector3;
@@ -1022,11 +971,9 @@ export function GameSandbox({
     }
     const activeDamages: DamageItem[] = [];
 
-    // Main animation loop tick
     const tick = () => {
       frameCount++;
 
-      // 1. Physics & Player movement logic
       let dx = 0;
       let dz = 0;
       const speed = isFlyingRef.current ? 0.15 : 0.08;
@@ -1060,18 +1007,16 @@ export function GameSandbox({
       playerPosRef.current = newPos;
       setPlayerPos(newPos);
 
-      // Rotate player group to face movement direction
       playerGroup.position.set(newPos.x, newPos.y, newPos.z);
       if (dx !== 0 || dz !== 0) {
         const targetAngle = Math.atan2(dx, dz);
-        // Smooth interpolation
+
         let diff = targetAngle - playerGroup.rotation.y;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
         playerGroup.rotation.y += diff * 0.2;
       }
 
-      // 2. Character walk limbs animation
       const moving = dx !== 0 || dz !== 0;
       if (moving) {
         const swing = Math.sin(frameCount * 0.15) * 0.55;
@@ -1100,7 +1045,6 @@ export function GameSandbox({
         torsoMesh.rotation.x = 0;
       }
 
-      // Flying particle emitters
       if (isFlyingRef.current && frameCount % 3 === 0) {
         const pGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
         const pMat = new THREE.MeshBasicMaterial({ color: 0xA855F7, transparent: true, opacity: 0.8 });
@@ -1119,7 +1063,6 @@ export function GameSandbox({
         });
       }
 
-      // Update flight particles
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.mesh.position.add(p.velocity);
@@ -1134,7 +1077,6 @@ export function GameSandbox({
         }
       }
 
-      // 3. Targets Practice sway & healing physics
       setTargets(prev => {
         const next = prev.map(t => {
           const nextPulse = t.pulse + 0.02;
@@ -1157,7 +1099,6 @@ export function GameSandbox({
         return next;
       });
 
-      // Update 3D targets in Three.js scene
       targetsRef.current.forEach(t => {
         let dummy = targetMeshes.get(t.id);
         if (!dummy) {
@@ -1175,7 +1116,6 @@ export function GameSandbox({
         }
       });
 
-      // 4. Aimbot automated target acquisition and shooting
       if (aimbotActiveRef.current && frameCount % 20 === 0 && targetsRef.current.length > 0) {
         const livingTargets = targetsRef.current.filter(t => t.health > 0);
         if (livingTargets.length > 0) {
@@ -1189,7 +1129,6 @@ export function GameSandbox({
             return t;
           }));
 
-          // Render Glowing laser beam cylinder
           const startVec = new THREE.Vector3(newPos.x, newPos.y + 0.6, newPos.z);
           const endVec = new THREE.Vector3(nearest.x, nearest.y + 0.2, nearest.z);
           const distance = startVec.distanceTo(endVec);
@@ -1203,7 +1142,6 @@ export function GameSandbox({
             laserMesh.visible = false;
           }, 100);
 
-          // Spawn DOM damage overlay
           const dmgDiv = document.createElement('div');
           dmgDiv.className = "absolute text-rose-500 font-mono text-[11px] font-black pointer-events-none transform -translate-x-1/2 select-none filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] z-30 animate-pulse";
           dmgDiv.textContent = `-${dmg}`;
@@ -1224,7 +1162,6 @@ export function GameSandbox({
         }
       }
 
-      // Update Floating damage DOM overlays
       for (let i = activeDamages.length - 1; i >= 0; i--) {
         const d = activeDamages[i];
         d.age++;
@@ -1251,7 +1188,6 @@ export function GameSandbox({
         }
       }
 
-      // 5. Spawned Sandbox objects syncing
       const activePartIds = new Set(sandboxObjectsRef.current.map(o => o.id));
       partMeshes.forEach((mesh, id) => {
         if (!activePartIds.has(id)) {
@@ -1334,7 +1270,7 @@ export function GameSandbox({
                         child.castShadow = true;
                         child.receiveShadow = true;
                         if (child.material) {
-                          // Try to support child materials correctly
+
                           if (Array.isArray(child.material)) {
                             child.material.forEach(m => {
                               if ('roughness' in m) (m as any).roughness = 0.7;
@@ -1412,7 +1348,7 @@ export function GameSandbox({
             partMeshes.set(obj.id, mesh);
           }
         } else {
-          // Static, stable placement - no bobbing or rotation animation
+
           if (obj.type !== 'MeshPart') {
             mesh.position.set(oX, baseOffset, oZ);
             mesh.rotation.set(0, 0, 0);
@@ -1420,7 +1356,6 @@ export function GameSandbox({
         }
       });
 
-      // 6. Day/Night sky & ambient lighting cycle
       const currentClockTime = clockTimeRef.current;
       const isNight = currentClockTime < 6 || currentClockTime > 18;
 
@@ -1439,14 +1374,12 @@ export function GameSandbox({
         }
       }
 
-      // Overrides if Sky template exists
       const activeSky = sandboxObjectsRef.current.find(o => o.type === 'Sky');
       if (activeSky && activeSky.thumbnailUrl) {
         skyColor.set(0x1B1530);
       }
       scene.background = skyColor;
 
-      // Lighting updates
       if (isNight) {
         ambientLight.color.setHex(0x1e1b4b);
         ambientLight.intensity = 0.35;
@@ -1464,7 +1397,6 @@ export function GameSandbox({
         starsMat.opacity = Math.max(0, starsMat.opacity - 0.03);
       }
 
-      // Baseplate Material textures
       const activeMaterial = sandboxObjectsRef.current.find(o => o.type === 'MaterialVariant');
       if (activeMaterial && activeMaterial.thumbnailUrl) {
         if (!baseplateMat.map) {
@@ -1486,11 +1418,8 @@ export function GameSandbox({
         baseplateMat.color.setHex(isNight ? 0x0B132B : 0x111827);
       }
 
-      // 7. Interactive camera orbital tracking (OrbitControls update)
       controls.update();
 
-      // 8. Projection overlays positioning
-      // Player Tag
       const playerTagEl = document.getElementById('sb-player-tag');
       const playerTagTextEl = document.getElementById('sb-player-tag-text');
       if (playerTagEl) {
@@ -1508,7 +1437,6 @@ export function GameSandbox({
         }
       }
 
-      // Targets
       targetsRef.current.forEach((t, index) => {
         const idNum = index + 1;
         const lockEl = document.getElementById(`sb-target-lock-${idNum}`);
@@ -1639,7 +1567,7 @@ export function GameSandbox({
       )} 
       ref={containerRef}
     >
-      {/* Sandbox Header */}
+      
       <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 border-b border-white/10 shrink-0 font-mono text-[10px] select-none text-gray-400">
         <div className="flex items-center space-x-2 text-cyan-400">
           <Gamepad2 size={13} className="animate-pulse" />
@@ -1672,14 +1600,14 @@ export function GameSandbox({
         </div>
       </div>
 
-      {/* Split Viewer workspace */}
+      
       <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden min-h-0">
-        {/* Canvas Engine Viewer */}
+        
         <div className="flex-1 relative min-h-0 bg-black select-none overflow-hidden">
           <canvas ref={canvasRef} className="w-full h-full block cursor-grab active:cursor-grabbing" />
 
-          {/* Screen Projected Overlay elements */}
-          {/* Player Tag */}
+          
+          
           <div 
             id="sb-player-tag" 
             className="absolute hidden -translate-x-1/2 -translate-y-full pointer-events-none select-none flex-col items-center z-10"
@@ -1691,10 +1619,10 @@ export function GameSandbox({
             <div className="w-1.5 h-1.5 bg-emerald-500/90 rotate-45 -mt-0.5" />
           </div>
 
-          {/* Target Indicators (Lock & Health bar pairs) */}
+          
           {[1, 2, 3].map((num) => (
             <React.Fragment key={num}>
-              {/* Target Lock Ring */}
+              
               <div 
                 id={`sb-target-lock-${num}`} 
                 className="absolute hidden -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none flex-col items-center justify-center z-10"
@@ -1705,7 +1633,7 @@ export function GameSandbox({
                 <span className="text-[7px] text-rose-500 font-mono font-bold mt-1 bg-black/60 px-0.5 rounded leading-none">AIM_LOCK</span>
               </div>
 
-              {/* Target Health Bar */}
+              
               <div 
                 id={`sb-target-hb-${num}`} 
                 className="absolute hidden -translate-x-1/2 -translate-y-full pointer-events-none select-none w-14 bg-black/80 border border-white/10 p-0.5 rounded z-10"
@@ -1717,10 +1645,10 @@ export function GameSandbox({
             </React.Fragment>
           ))}
 
-          {/* Floating Screen-Projected damage numbers container */}
+          
           <div id="sb-damage-container" className="absolute inset-0 pointer-events-none overflow-hidden z-20" />
 
-          {/* Floating Workspace overlay controller */}
+          
           <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur-md border border-white/10 p-2 rounded font-mono text-[10px] space-y-1.5 z-20 text-gray-400 select-none max-w-[150px]">
             <div className="text-white font-bold text-[9px] border-b border-white/5 pb-1">LIGHTING PRESET</div>
             <div className="flex items-center justify-between">
@@ -1758,13 +1686,13 @@ export function GameSandbox({
             </div>
           </div>
 
-          {/* Interactive Keyboard Walk Guide Overlay / Joystick */}
+          
           <div className="absolute bottom-2.5 right-2.5 bg-black/80 backdrop-blur border border-white/5 px-2 py-1.5 rounded font-mono text-[8px] text-gray-500 select-none z-10 text-right">
             <div>CLICK VIEWPORT TO CONTROL</div>
             <div className="text-cyan-400 font-bold mt-0.5">[WASD] / [ARROWS] WALK</div>
           </div>
 
-          {/* Consolidated Roblox Studio Dev Dock at bottom of Viewport */}
+          
           <div className="absolute bottom-2.5 left-2.5 right-2.5 h-7 bg-zinc-950/90 border border-white/10 rounded-md flex items-center px-2 py-1 space-x-2 z-20 font-mono text-[9px]">
             <button
               type="button"
@@ -1810,7 +1738,7 @@ export function GameSandbox({
             </button>
           </div>
 
-          {/* Floating F9 Console positioned directly above Dev Dock */}
+          
           {showF9Console && (
             <div className="absolute bottom-[40px] left-2.5 w-80 h-36 bg-black/95 border border-white/10 rounded-md overflow-hidden flex flex-col font-mono text-[9px] z-20 text-gray-400 shadow-xl">
               <div className="bg-zinc-900 px-2.5 py-1 border-b border-white/5 flex items-center justify-between text-gray-300 font-bold shrink-0">
@@ -1846,7 +1774,7 @@ export function GameSandbox({
             </div>
           )}
 
-          {/* Cheat Sheet Popover */}
+          
           {showCheatSheet && (
             <div className="absolute bottom-[40px] right-2.5 w-72 max-h-52 bg-zinc-950/95 border border-cyan-500/30 rounded p-2.5 z-30 font-mono text-[8px] text-gray-400 overflow-y-auto custom-scrollbar shadow-2xl">
               <div className="flex items-center justify-between font-bold text-cyan-400 border-b border-white/5 pb-1 mb-1.5 uppercase text-[9px]">
@@ -1870,7 +1798,7 @@ export function GameSandbox({
           )}
         </div>
 
-        {/* Roblox Hierarchy Explorer sidebar (Right Side inside Sandbox) */}
+        
         <div className="w-full lg:w-48 bg-zinc-950 border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col font-mono text-[10px] text-gray-400 shrink-0 select-none">
           <div className="px-2.5 py-1.5 bg-black/60 border-b border-white/10 text-[9px] font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
             <span>Explorer Tree</span>
@@ -1887,9 +1815,9 @@ export function GameSandbox({
           </div>
 
           <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5 custom-scrollbar">
-            {/* Core Game tree folder structures */}
+            
             <div className="space-y-0.5">
-              {/* Workspace tree */}
+              
               <div 
                 onClick={() => setSelectedHierarchy('Workspace')}
                 className={cn("flex items-center px-1.5 py-0.5 rounded cursor-pointer", selectedHierarchy === 'Workspace' ? "bg-white/5 text-white" : "hover:bg-white/5")}
@@ -1898,7 +1826,7 @@ export function GameSandbox({
                 <Layers size={10} className="mr-1.5 text-cyan-500" />
                 <span className="font-semibold">Workspace</span>
               </div>
-              {/* Workspace children */}
+              
               <div className="pl-4 space-y-0.5">
                 <div className="flex items-center text-[9px] text-gray-500">
                   <CornerDownRight size={8} className="mr-1" />
@@ -1911,7 +1839,7 @@ export function GameSandbox({
                   <span>Camera</span>
                 </div>
                 
-                {/* Custom Spawned workspace items */}
+                
                 {sandboxObjects.filter(o => o.type === 'Part' || o.type === 'MeshPart').map(obj => (
                   <div 
                     key={obj.id}
@@ -1937,7 +1865,7 @@ export function GameSandbox({
                 ))}
               </div>
 
-              {/* Players tree */}
+              
               <div 
                 onClick={() => setSelectedHierarchy('Players')}
                 className={cn("flex items-center px-1.5 py-0.5 rounded cursor-pointer mt-1", selectedHierarchy === 'Players' ? "bg-white/5 text-white" : "hover:bg-white/5")}
@@ -1952,7 +1880,7 @@ export function GameSandbox({
                 <span>Fsociety_Player (LocalPlayer)</span>
               </div>
 
-              {/* Lighting tree */}
+              
               <div 
                 onClick={() => setSelectedHierarchy('Lighting')}
                 className={cn("flex items-center px-1.5 py-0.5 rounded cursor-pointer mt-1", selectedHierarchy === 'Lighting' ? "bg-white/5 text-white" : "hover:bg-white/5")}
@@ -1987,7 +1915,7 @@ export function GameSandbox({
                 ))}
               </div>
 
-              {/* MaterialService tree */}
+              
               <div 
                 onClick={() => setSelectedHierarchy('MaterialService')}
                 className={cn("flex items-center px-1.5 py-0.5 rounded cursor-pointer mt-1", selectedHierarchy === 'MaterialService' ? "bg-white/5 text-white" : "hover:bg-white/5")}
@@ -2024,7 +1952,7 @@ export function GameSandbox({
             </div>
           </div>
 
-          {/* Properties Panel (bottom tree sidebar) */}
+          
           <div className="h-28 bg-[#0D0D14] border-t border-white/10 flex flex-col min-h-0">
             <div className="px-2 py-1 bg-black/40 border-b border-white/5 text-[8px] font-bold uppercase tracking-wider text-gray-400">
               Properties Box

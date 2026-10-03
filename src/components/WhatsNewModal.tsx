@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Shield, Zap, Upload, CheckCircle2, History, ArrowUpRight, Flame } from 'lucide-react';
+import { Sparkles, X, Shield, Zap, Upload, CheckCircle2, History, Flame, Lock, Database } from 'lucide-react';
 
 export interface ChangelogRelease {
   version: string;
@@ -10,7 +10,7 @@ export interface ChangelogRelease {
   tagColor: string;
   summary: string;
   highlights: {
-    iconName?: 'zap' | 'shield' | 'upload' | 'sparkles' | 'check';
+    iconName?: 'zap' | 'shield' | 'upload' | 'sparkles' | 'check' | 'lock' | 'database';
     title: string;
     description: string;
   }[];
@@ -18,9 +18,33 @@ export interface ChangelogRelease {
 
 const RELEASES: ChangelogRelease[] = [
   {
+    version: 'v2.6.0',
+    date: 'October 2026',
+    isLatest: true,
+    tag: 'Roblox Cloud & Anti-Scraper',
+    tagColor: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    summary: 'Roblox raw loadstring cloud endpoint, anti-scraper inspection shield, and permanent backend persistence with script recovery vault.',
+    highlights: [
+      {
+        iconName: 'zap',
+        title: 'Roblox Raw Loadstring Cloud',
+        description: 'Upload scripts and immediately generate permanent loadstring(game:HttpGet("https://.../raw/ID"))() endpoints configured specifically for Roblox executors.'
+      },
+      {
+        iconName: 'lock',
+        title: 'Anti-Scraper & Anti-Inspection Shield',
+        description: 'Automated 403 rejection perimeter blocks direct browser navigation, web scrapers, and Python request libraries from extracting raw code payloads.'
+      },
+      {
+        iconName: 'database',
+        title: 'Permanent Persistence & Script Recovery Vault',
+        description: 'Multi-tier storage engine with local autosave snapshots, permanent cloud mirrors, and instant 1-click restore vault ensuring scripts never disappear.'
+      }
+    ]
+  },
+  {
     version: 'v2.5.1',
     date: 'September 2026',
-    isLatest: true,
     tag: 'Bug Fix & Stability',
     tagColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
     summary: 'Resolved script generation pipeline errors, enhanced AI model routing with auto-failover, and fortified identifier uniqueness.',
@@ -180,6 +204,8 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
       case 'shield': return <Shield size={14} className="text-indigo-400" />;
       case 'upload': return <Upload size={14} className="text-emerald-400" />;
       case 'sparkles': return <Sparkles size={14} className="text-purple-400" />;
+      case 'lock': return <Lock size={14} className="text-rose-400" />;
+      case 'database': return <Database size={14} className="text-cyan-400" />;
       default: return <CheckCircle2 size={14} className="text-emerald-400" />;
     }
   };
@@ -201,7 +227,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               <div>
                 <h2 className="text-base sm:text-lg font-semibold text-white tracking-wide flex items-center gap-2">
                   What's New in Fsociety
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono font-bold">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono font-bold">
                     {RELEASES[0].version}
                   </span>
                 </h2>
@@ -227,7 +253,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <div key={release.version} className="relative group">
                   <div className={`absolute -left-[27px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-colors ${
                     release.isLatest 
-                      ? 'bg-indigo-500 border-indigo-300 ring-4 ring-indigo-500/20' 
+                      ? 'bg-rose-500 border-rose-300 ring-4 ring-rose-500/20' 
                       : 'bg-zinc-800 border-zinc-600 group-hover:border-zinc-400'
                   }`} />
 
@@ -243,7 +269,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                         {release.date}
                       </span>
                       {release.isLatest && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
                           Current Version
                         </span>
                       )}
@@ -278,7 +304,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
           <div className="px-5 py-3.5 border-t border-white/10 bg-zinc-950/80 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-mono">
               <History size={13} />
-              <span>Scroll down to view past version release logs</span>
+              <span>Scroll down or up to explore all historical releases</span>
             </div>
             <button
               onClick={onClose}

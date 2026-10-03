@@ -5,9 +5,7 @@ import { Mistral } from "@mistralai/mistralai";
 import scraper from "ddg-scraper";
 import axios from "axios";
 import fs from "fs";
-import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
-// @ts-ignore
-import luamin from "luamin";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -34,52 +32,288 @@ const getMistralApiKey = () => {
 };
 
 const resolvedMistralKey = getMistralApiKey();
-console.log(`[MISTRAL] Resolved key suffix for initialization: ...${resolvedMistralKey.substring(resolvedMistralKey.length - 6)}`);
 
 const mistralClient = new Mistral({
   apiKey: resolvedMistralKey
 });
 
-const PASTES_FILE = path.join(process.cwd(), "pastes.json");
+const DATA_DIR = path.join(process.cwd(), "data");
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+const PASTES_FILE = path.join(DATA_DIR, "pastes.json");
+const WORKSPACE_FILE = path.join(DATA_DIR, "workspace.json");
+const LEGACY_PASTES_FILE = path.join(process.cwd(), "pastes.json");
 
 interface Paste {
   id: string;
+  name?: string;
   content: string;
   createdAt: number;
+  dpasteUrl?: string;
+  size: number;
 }
 
 let pastes: Record<string, Paste> = {};
 
-try {
-  if (fs.existsSync(PASTES_FILE)) {
-    const raw = fs.readFileSync(PASTES_FILE, "utf-8");
-    pastes = JSON.parse(raw);
+function loadPastesFromDisk() {
+  try {
+    if (fs.existsSync(PASTES_FILE)) {
+      const raw = fs.readFileSync(PASTES_FILE, "utf-8");
+      pastes = JSON.parse(raw);
+    } else if (fs.existsSync(LEGACY_PASTES_FILE)) {
+      const raw = fs.readFileSync(LEGACY_PASTES_FILE, "utf-8");
+      pastes = JSON.parse(raw);
+      fs.writeFileSync(PASTES_FILE, JSON.stringify(pastes, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("Failed to load pastes from disk", err);
   }
-} catch (err) {
-  console.error("Failed to load pastes.json, starting fresh", err);
 }
+loadPastesFromDisk();
 
-function savePaste(content: string): string {
-  const id = Math.random().toString(36).substring(2, 10);
-  pastes[id] = {
-    id,
-    content,
-    createdAt: Date.now()
-  };
+function flushPastesToDisk() {
   try {
     fs.writeFileSync(PASTES_FILE, JSON.stringify(pastes, null, 2), "utf-8");
   } catch (err) {
     console.error("Failed to save pastes.json", err);
   }
-  return id;
+}
+
+async function savePaste(content: string, name?: string): Promise<Paste> {
+  const id = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 6);
+  const paste: Paste = {
+    id,
+    name: name || "RobloxScript.lua",
+    content,
+    createdAt: Date.now(),
+    size: Buffer.byteLength(content, "utf-8")
+  };
+
+  pastes[id] = paste;
+  flushPastesToDisk();
+
+  try {
+    const dpasteRes = await axios.post(
+      "https://dpaste.com/api/v2/",
+      new URLSearchParams({ content, expires: "never" }).toString(),
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 5000
+      }
+    );
+    const dpasteUrl = typeof dpasteRes.data === "string" ? dpasteRes.data.trim() : "";
+    if (dpasteUrl) {
+      paste.dpasteUrl = dpasteUrl.endsWith(".txt") ? dpasteUrl : `${dpasteUrl}.txt`;
+      pastes[id] = paste;
+      flushPastesToDisk();
+    }
+  } catch (err) {
+    console.warn("Dpaste mirror failed, local storage preserved");
+  }
+
+  return paste;
+}
+
+function getPaste(id: string): Paste | null {
+  if (pastes[id]) return pastes[id];
+  loadPastesFromDisk();
+  return pastes[id] || null;
+}
+
+function isRobloxEngine(req: express.Request): boolean {
+  const ua = (req.headers["user-agent"] || "").toLowerCase();
+  const accept = (req.headers["accept"] || "").toLowerCase();
+  const secFetchDest = (req.headers["sec-fetch-dest"] || "").toLowerCase();
+  const secFetchMode = (req.headers["sec-fetch-mode"] || "").toLowerCase();
+
+  const isBrowserNavigation = secFetchDest === "document" || secFetchMode === "navigate" || accept.includes("text/html");
+  if (isBrowserNavigation) {
+    return false;
+  }
+
+  const blockedSignatures = [
+    "python",
+    "requests",
+    "urllib",
+    "aiohttp",
+    "httpx",
+    "curl",
+    "wget",
+    "httpie",
+    "postman",
+    "insomnia",
+    "scrapy",
+    "mechanize",
+    "beautifulsoup",
+    "selenium",
+    "playwright",
+    "puppeteer",
+    "axios",
+    "node-fetch",
+    "got",
+    "superagent",
+    "scraper",
+    "spider",
+    "crawler",
+    "headless",
+    "phantomjs",
+    "rest-client"
+  ];
+
+  for (const sig of blockedSignatures) {
+    if (ua.includes(sig)) {
+      return false;
+    }
+  }
+
+  const hasRobloxHeader = Boolean(
+    req.headers["roblox-place-id"] ||
+    req.headers["roblox-game-id"] ||
+    req.headers["roblox-session-id"] ||
+    req.headers["x-roblox-"] ||
+    req.headers["syn-fingerprint"] ||
+    req.headers["delta-auth"] ||
+    req.headers["flux-fingerprint"] ||
+    req.headers["wave-fingerprint"]
+  );
+
+  const allowedUaSignatures = [
+    "roblox",
+    "wininet",
+    "synx",
+    "synapse",
+    "fluxus",
+    "delta",
+    "wave",
+    "solara",
+    "celery",
+    "arceus",
+    "hydrogen",
+    "krnl",
+    "electron",
+    "sw-executor",
+    "codex",
+    "vega"
+  ];
+
+  const hasAllowedUa = allowedUaSignatures.some(sig => ua.includes(sig));
+
+  if (hasRobloxHeader || hasAllowedUa) {
+    return true;
+  }
+
+  const isPlainHttp = (accept.includes("*/*") || accept.includes("text/plain") || !accept) && !ua.includes("mozilla");
+  if (isPlainHttp) {
+    return true;
+  }
+
+  return false;
+}
+
+function renderSecurityRejectionHtml(ip: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>403 Forbidden - Security Perimeter Active</title>
+  <style>
+    body {
+      background: #09090d;
+      color: #f3f4f6;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .panel {
+      max-width: 620px;
+      width: 100%;
+      background: #111118;
+      border: 1px solid #dc2626;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 0 35px rgba(220, 38, 38, 0.2);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(220, 38, 38, 0.15);
+      color: #ef4444;
+      border: 1px solid rgba(220, 38, 38, 0.4);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+    h1 {
+      color: #f87171;
+      font-size: 20px;
+      margin: 0 0 12px;
+      letter-spacing: 0.05em;
+    }
+    p {
+      color: #9ca3af;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0 0 16px;
+    }
+    .box {
+      background: #06060a;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+      font-size: 12px;
+      color: #e5e7eb;
+    }
+    .meta {
+      font-size: 11px;
+      color: #6b7280;
+      border-top: 1px solid #1f2937;
+      padding-top: 14px;
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="badge">ACCESS TERMINATED // HTTP 403</div>
+    <h1>DIRECT INSPECTION PROHIBITED</h1>
+    <p>This endpoint is a protected Roblox raw node. Direct browser rendering and automated source dumping are permanently disabled to prevent unauthorized code extraction.</p>
+    <div class="box">
+      <strong>Execution Requirement:</strong><br>
+      This payload can only be fetched directly through the Roblox engine using:<br>
+      <code>loadstring(game:HttpGet("https://moonsec-obfuscator.onrender.com/raw/ID"))()</code>
+    </div>
+    <p>Python scraper libraries, browser navigators, and debugging web clients are actively rejected.</p>
+    <div class="meta">
+      <span>Shield: MoonSec Perimeter</span>
+      <span>Client IP: ${ip}</span>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 async function searchGameFiles(gameName: string, searchQuery?: string): Promise<string> {
   if (searchQuery) {
     try {
-      console.log(`Searching web for: ${searchQuery}`);
       const urls: string[] = await new Promise((resolve) => {
-        scraper.search({q: searchQuery}, (err: any, urls: string[]) => resolve(urls || []));
+        scraper.search({ q: searchQuery }, (err: any, urls: string[]) => resolve(urls || []));
       });
       
       let scriptsScraped = "";
@@ -87,45 +321,38 @@ async function searchGameFiles(gameName: string, searchQuery?: string): Promise<
       
       for (const urlStr of urls) {
         if (foundScripts >= 2) break;
+        const url = urlStr.split("&rut=")[0];
         
-        const url = urlStr.split('&rut=')[0];
-        
-        if (url.includes('github.com') && url.includes('/blob/')) {
-           const rawUrl = url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
-           try {
-             const res = await axios.get(rawUrl, { timeout: 5000 });
-             if (res.data && typeof res.data === 'string') {
-               const sample = res.data.substring(0, 3000);
-               scriptsScraped += `[SCRIPT FROM ${url}]\n${sample}\n\n`;
-               foundScripts++;
-             }
-           } catch(e) {
-             console.error(`Failed to fetch ${rawUrl}`);
-           }
-        } else if (url.includes('pastebin.com/')) {
-           const id = url.split('/').pop();
-           if (id) {
-             const rawUrl = `https://pastebin.com/raw/${id}`;
-             try {
-               const res = await axios.get(rawUrl, { timeout: 5000 });
-               if (res.data && typeof res.data === 'string') {
-                 const sample = res.data.substring(0, 3000);
-                 scriptsScraped += `[SCRIPT FROM ${url}]\n${sample}\n\n`;
-                 foundScripts++;
-               }
-             } catch(e) {
-               console.error(`Failed to fetch ${rawUrl}`);
-             }
-           }
+        if (url.includes("github.com") && url.includes("/blob/")) {
+          const rawUrl = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
+          try {
+            const res = await axios.get(rawUrl, { timeout: 5000 });
+            if (res.data && typeof res.data === "string") {
+              const sample = res.data.substring(0, 3000);
+              scriptsScraped += `[SCRIPT FROM ${url}]\n${sample}\n\n`;
+              foundScripts++;
+            }
+          } catch (e) {}
+        } else if (url.includes("pastebin.com/")) {
+          const id = url.split("/").pop();
+          if (id) {
+            const rawUrl = `https://pastebin.com/raw/${id}`;
+            try {
+              const res = await axios.get(rawUrl, { timeout: 5000 });
+              if (res.data && typeof res.data === "string") {
+                const sample = res.data.substring(0, 3000);
+                scriptsScraped += `[SCRIPT FROM ${url}]\n${sample}\n\n`;
+                foundScripts++;
+              }
+            } catch (e) {}
+          }
         }
       }
       
       if (scriptsScraped) {
         return `[SCRAPED EXPLOIT SCRIPTS FOR ${gameName}]\n\nI found the following raw scripts online. Analyze them to figure out the correct Workspace/ReplicatedStorage paths for this specific game, then write your own script:\n\n${scriptsScraped}`;
       }
-    } catch (e) {
-      console.error("Search failed:", e);
-    }
+    } catch (e) {}
   }
   
   return `No specific internal file structure found for "${gameName}". You should write generic Roblox exploit code using standard services. Use variables like 'local Players = game:GetService("Players")' and 'local workspace = game:GetService("Workspace")'.`;
@@ -138,14 +365,8 @@ function fallbackObfuscateLua(code: string, options?: any, preset: string = "Bal
   const isParanoid = preset === "Paranoid";
   const isFast = preset === "Fast";
 
-  const optRename = options?.renameLocals !== false;
-  const optEncryptStrings = options?.encryptStrings !== false;
-  const optEncryptConstants = options?.encryptConstants !== false;
-  const optControlFlow = options?.controlFlow !== false;
   const optAntiHook = options?.antiHook !== false;
-  const optAntiTamper = options?.antiTamper !== false;
   const optWatermark = options?.watermark !== false;
-  const optPolymorphic = options?.polymorphic !== false;
   const optWeirdSpacing = options?.weirdSpacing === true;
   const optRealtimeGuard = options?.realtimeGuard === true;
   const optAntiLag = options?.antiLag !== false;
@@ -212,7 +433,6 @@ function fallbackObfuscateLua(code: string, options?: any, preset: string = "Bal
   const v_timingA = generateName();
   const v_timingB = generateName();
   const v_antiLagFn = generateName();
-  const v_loader = generateName();
 
   const antiHookBlock = optAntiHook ? `if ${v_type}(${v_pcall})~="function" or ${v_type}(${v_char})~="function" or ${v_type}(${v_concat})~="function" or ${v_type}(${v_byte})~="function" then return end` : "";
 
@@ -272,19 +492,14 @@ end`;
     obfuscatedLua += vmCore.split("\n").map(l => l.trim()).filter(Boolean).join(" ");
   }
 
-  let localCount = 0;
-  let stringCount = 0;
-  let numberCount = 0;
-  let controlCount = 0;
-
   const sampleLen = Math.min(code.length, 50000);
   const sample = code.substring(0, sampleLen);
   const scale = code.length > 0 ? code.length / sampleLen : 1;
 
-  localCount = Math.floor(((sample.match(/\b(local|function)\b/g) || []).length) * scale);
-  stringCount = Math.floor(((sample.match(/["']/g) || []).length / 2) * scale);
-  numberCount = Math.floor(((sample.match(/\b\d+\b/g) || []).length) * scale);
-  controlCount = Math.floor(((sample.match(/\b(if|then|else|do|while|for|repeat|until)\b/g) || []).length) * scale);
+  const localCount = Math.floor(((sample.match(/\b(local|function)\b/g) || []).length) * scale);
+  const stringCount = Math.floor(((sample.match(/["']/g) || []).length / 2) * scale);
+  const numberCount = Math.floor(((sample.match(/\b\d+\b/g) || []).length) * scale);
+  const controlCount = Math.floor(((sample.match(/\b(if|then|else|do|while|for|repeat|until)\b/g) || []).length) * scale);
 
   const stats = {
     preset: preset || "Balanced",
@@ -301,7 +516,6 @@ end`;
   return { code: obfuscatedLua, stats };
 }
 
-
 async function shortenUrl(longUrl: string, preferredAlias?: string): Promise<string> {
   if (preferredAlias) {
     const cleanAlias = preferredAlias.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 30);
@@ -315,9 +529,7 @@ async function shortenUrl(longUrl: string, preferredAlias?: string): Promise<str
         if (text && text.startsWith("http") && !text.includes("Error")) {
           return text;
         }
-      } catch (err: any) {
-        console.warn(`is.gd shortening with alias "${cleanAlias}" failed, falling back to standard:`, err.message);
-      }
+      } catch (err: any) {}
     }
   }
 
@@ -330,9 +542,7 @@ async function shortenUrl(longUrl: string, preferredAlias?: string): Promise<str
     if (text && text.startsWith("http") && !text.includes("Error")) {
       return text;
     }
-  } catch (err: any) {
-    console.warn("is.gd standard shortening failed, trying da.gd:", err.message);
-  }
+  } catch (err: any) {}
 
   try {
     const daUrl = `https://da.gd/s?url=${encodeURIComponent(longUrl)}`;
@@ -341,9 +551,7 @@ async function shortenUrl(longUrl: string, preferredAlias?: string): Promise<str
     if (text && text.startsWith("http") && !text.includes("Error")) {
       return text;
     }
-  } catch (err: any) {
-    console.warn("da.gd fallback failed, trying clck.ru:", err.message);
-  }
+  } catch (err: any) {}
 
   try {
     const res = await axios.get(`https://clck.ru/--?url=${encodeURIComponent(longUrl)}`, { timeout: 5000 });
@@ -351,9 +559,7 @@ async function shortenUrl(longUrl: string, preferredAlias?: string): Promise<str
     if (text && text.startsWith("http")) {
       return text;
     }
-  } catch (err: any) {
-    console.warn("clck.ru fallback failed:", err.message);
-  }
+  } catch (err: any) {}
 
   return longUrl;
 }
@@ -365,7 +571,6 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Custom JSON error middleware for Express body-parser or payload size errors
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err) {
       console.error("Express middleware error:", err);
@@ -381,15 +586,190 @@ async function startServer() {
     next();
   });
 
-  // Plain-text endpoint to serve scripts to Roblox executor loadstring
-  app.get("/s/:id", (req, res) => {
+  const handleRawScriptRequest = (req: express.Request, res: express.Response) => {
     const id = req.params.id;
-    const paste = pastes[id];
-    if (paste) {
-      res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      return res.send(paste.content);
+    const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1").toString();
+
+    const accept = (req.headers["accept"] || "").toLowerCase();
+    const secFetchDest = (req.headers["sec-fetch-dest"] || "").toLowerCase();
+    const secFetchMode = (req.headers["sec-fetch-mode"] || "").toLowerCase();
+    const ua = (req.headers["user-agent"] || "").toLowerCase();
+
+    if (secFetchDest === "document" || secFetchMode === "navigate" || accept.includes("text/html")) {
+      res.status(403);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(renderSecurityRejectionHtml(ip));
     }
-    return res.status(404).send("-- [[ Fsociety Error: Script Paste Not Found ]]");
+
+    const blockedScrapers = [
+      "python",
+      "requests",
+      "urllib",
+      "aiohttp",
+      "httpx",
+      "curl",
+      "wget",
+      "httpie",
+      "postman",
+      "insomnia",
+      "scrapy",
+      "mechanize",
+      "beautifulsoup",
+      "selenium",
+      "playwright",
+      "puppeteer",
+      "axios",
+      "node-fetch",
+      "got",
+      "superagent",
+      "scraper",
+      "spider",
+      "crawler",
+      "headless",
+      "phantomjs"
+    ];
+
+    if (blockedScrapers.some(tool => ua.includes(tool))) {
+      res.status(403);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.send("-- [MOONSEC SECURITY SHIELD]: Automated scraper or Python client blocked. Direct extraction is prohibited.");
+    }
+
+    if (!isRobloxEngine(req)) {
+      res.status(403);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.send("-- [MOONSEC SECURITY PERIMETER]: Execution restricted strictly to Roblox engine loadstring(game:HttpGet(...)).");
+    }
+
+    const paste = getPaste(id);
+    if (!paste) {
+      res.status(404);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.send("-- [MOONSEC ERROR]: Script node not found or expired.");
+    }
+
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    const runtimeGuardWrapper = `if not game or not game.GetService then return end\n` + paste.content;
+    return res.send(runtimeGuardWrapper);
+  };
+
+  app.get("/raw/:id", handleRawScriptRequest);
+  app.get("/s/:id", handleRawScriptRequest);
+  app.get("/api/raw/:id", handleRawScriptRequest);
+
+  app.post("/api/raw/upload", async (req, res) => {
+    try {
+      const { code, name } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "Missing or invalid code payload" });
+      }
+
+      const paste = await savePaste(code, name);
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "moonsec-obfuscator.onrender.com";
+      const rawUrl = `${protocol}://${host}/raw/${paste.id}`;
+      const loadstring = `loadstring(game:HttpGet("${rawUrl}"))()`;
+
+      return res.json({
+        id: paste.id,
+        name: paste.name,
+        rawUrl,
+        loadstring,
+        size: paste.size,
+        createdAt: paste.createdAt
+      });
+    } catch (err: any) {
+      console.error("Raw upload error:", err);
+      return res.status(500).json({ error: "Failed to persist script to raw cloud node" });
+    }
+  });
+
+  app.post("/api/raw/batch", async (req, res) => {
+    try {
+      const { files } = req.body;
+      if (!Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ error: "Missing or invalid files array" });
+      }
+
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "moonsec-obfuscator.onrender.com";
+
+      const results = [];
+      for (const item of files) {
+        if (!item.code) continue;
+        const paste = await savePaste(item.code, item.name);
+        const rawUrl = `${protocol}://${host}/raw/${paste.id}`;
+        results.push({
+          id: paste.id,
+          name: paste.name,
+          rawUrl,
+          loadstring: `loadstring(game:HttpGet("${rawUrl}"))()`,
+          size: paste.size
+        });
+      }
+
+      return res.json({ results });
+    } catch (err: any) {
+      console.error("Batch raw upload error:", err);
+      return res.status(500).json({ error: "Failed to process batch upload" });
+    }
+  });
+
+  app.get("/api/workspace", (req, res) => {
+    try {
+      if (fs.existsSync(WORKSPACE_FILE)) {
+        const raw = fs.readFileSync(WORKSPACE_FILE, "utf-8");
+        return res.json(JSON.parse(raw));
+      }
+      return res.json({ files: null, code: null });
+    } catch (err: any) {
+      console.error("Failed to read workspace file:", err);
+      return res.status(500).json({ error: "Failed to load workspace" });
+    }
+  });
+
+  app.post("/api/workspace", (req, res) => {
+    try {
+      const { files, code, activeFileId } = req.body;
+      const dataToSave = {
+        files: files || [],
+        code: code || {},
+        activeFileId: activeFileId || null,
+        updatedAt: Date.now()
+      };
+      fs.writeFileSync(WORKSPACE_FILE, JSON.stringify(dataToSave, null, 2), "utf-8");
+      return res.json({ success: true, savedAt: dataToSave.updatedAt });
+    } catch (err: any) {
+      console.error("Failed to save workspace file:", err);
+      return res.status(500).json({ error: "Failed to persist workspace" });
+    }
+  });
+
+  app.get("/api/vault/scripts", (req, res) => {
+    try {
+      loadPastesFromDisk();
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "moonsec-obfuscator.onrender.com";
+
+      const scriptList = Object.values(pastes).map(p => ({
+        id: p.id,
+        name: p.name || `Script_${p.id}.lua`,
+        createdAt: p.createdAt,
+        size: p.size,
+        rawUrl: `${protocol}://${host}/raw/${p.id}`,
+        loadstring: `loadstring(game:HttpGet("${protocol}://${host}/raw/${p.id}"))()`,
+        snippet: p.content.slice(0, 160)
+      })).sort((a, b) => b.createdAt - a.createdAt);
+
+      return res.json({ scripts: scriptList });
+    } catch (err: any) {
+      return res.status(500).json({ error: "Failed to list vault scripts" });
+    }
   });
 
   app.post("/api/generate", async (req, res) => {
@@ -415,7 +795,6 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
             { role: "user" as const, content: textPrompt }
           ];
 
-          console.log(`Sending request to Mistral model: ${mistralModel}`);
           const mistralResponse = await mistralClient.chat.complete({
             model: mistralModel,
             messages
@@ -424,9 +803,7 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
           text = typeof mistralResponse.choices?.[0]?.message?.content === "string" 
             ? mistralResponse.choices[0].message.content 
             : "";
-        } catch (mistralErr: any) {
-          console.warn("Mistral generation failed, attempting Gemini fallback:", mistralErr.message);
-        }
+        } catch (mistralErr: any) {}
       }
 
       if (!text) {
@@ -435,7 +812,6 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
 
         for (const targetModel of geminiModelsToTry) {
           try {
-            console.log(`Sending request to Gemini model: ${targetModel}`);
             const contents = [{
               role: "user",
               parts: [{ text: `${systemInstruction}\n\n${textPrompt}` }]
@@ -463,7 +839,6 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
               break;
             }
           } catch (geminiErr: any) {
-            console.warn(`Gemini model ${targetModel} attempt failed:`, geminiErr.message);
             lastError = geminiErr;
           }
         }
@@ -497,22 +872,18 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
 
   app.post("/api/paste", async (req, res) => {
     try {
-      const { code } = req.body;
-      const fetchResponse = await fetch("https://dpaste.com/api/v2/", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ content: code, expires: "never" }).toString()
+      const { code, name } = req.body;
+      const paste = await savePaste(code, name);
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "moonsec-obfuscator.onrender.com";
+      const rawUrl = `${protocol}://${host}/raw/${paste.id}`;
+      
+      return res.json({ 
+        url: rawUrl,
+        rawUrl: rawUrl,
+        id: paste.id,
+        loadstring: `loadstring(game:HttpGet("${rawUrl}"))()`
       });
-      const dpasteUrl = (await fetchResponse.text()).trim();
-      const rawDpasteUrl = dpasteUrl.endsWith(".txt") ? dpasteUrl : `${dpasteUrl}.txt`;
-      
-      const match = dpasteUrl.match(/dpaste\.com\/(.+)/);
-      const id = match ? match[1].trim() : Math.random().toString(36).substring(2, 10);
-      const randomSuffix = Math.random().toString(36).substring(2, 6);
-      const preferredAlias = `Fsociety-Catalyst-${id.toLowerCase()}-${randomSuffix}`;
-      
-      const finalUrl = await shortenUrl(rawDpasteUrl, preferredAlias);
-      res.json({ url: finalUrl });
     } catch (error: any) {
       console.error("Paste error:", error);
       res.status(500).json({ error: "Failed to upload script" });
@@ -536,16 +907,10 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
 
       res.write(JSON.stringify({ status: "uploading", step: 3, message: "Uploading final obfuscated script (Link 3/3)..." }) + "\n");
       
-      let dpasteRes = await axios.post(
-        "https://dpaste.com/api/v2/",
-        new URLSearchParams({ content: finalObfuscatedCode, expires: "never" }).toString(),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          timeout: 5000
-        }
-      );
-      let currentUrl = dpasteRes.data.trim();
-      let currentRawUrl = currentUrl.endsWith(".txt") ? currentUrl : `${currentUrl}.txt`;
+      const paste = await savePaste(finalObfuscatedCode, "Obfuscated_Main.lua");
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = req.headers["x-forwarded-host"] || req.get("host") || "moonsec-obfuscator.onrender.com";
+      let currentRawUrl = `${protocol}://${host}/raw/${paste.id}`;
       
       res.write(JSON.stringify({ status: "progress", step: 3, url: currentRawUrl, message: `Link 3/3 created: ${currentRawUrl}` }) + "\n");
 
@@ -555,27 +920,15 @@ Protected with Fsociety
 --]]
 loadstring(game:HttpGet("${currentRawUrl}"))()`;
         
-        dpasteRes = await axios.post(
-          "https://dpaste.com/api/v2/",
-          new URLSearchParams({ content: textContent, expires: "never" }).toString(),
-          {
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            timeout: 5000
-          }
-        );
-        currentUrl = dpasteRes.data.trim();
-        currentRawUrl = currentUrl.endsWith(".txt") ? currentUrl : `${currentUrl}.txt`;
+        const chainPaste = await savePaste(textContent, `Loader_L${i}.lua`);
+        currentRawUrl = `${protocol}://${host}/raw/${chainPaste.id}`;
         
         res.write(JSON.stringify({ status: "progress", step: i, url: currentRawUrl, message: `Link ${i}/3 created: ${currentRawUrl}` }) + "\n");
       }
 
       res.write(JSON.stringify({ status: "shortening", message: "Shortening entry link using secure shortener..." }) + "\n");
       
-      const match = currentRawUrl.match(/dpaste\.com\/(.+)/);
-      const id = match ? match[1].trim() : Math.random().toString(36).substring(2, 10);
-      const randomSuffix = Math.random().toString(36).substring(2, 6);
-      const preferredAlias = `Fsociety-Catalyst-${id.toLowerCase()}-${randomSuffix}`;
-      
+      const preferredAlias = `Fsociety-Catalyst-${paste.id.toLowerCase()}`;
       const finalUrl = await shortenUrl(currentRawUrl, preferredAlias);
       
       res.write(JSON.stringify({ status: "success", url: finalUrl, rawUrl: currentRawUrl, message: "Safe-Link generation complete!" }) + "\n");
@@ -610,7 +963,6 @@ loadstring(game:HttpGet("${currentRawUrl}"))()`;
       
       return res.json(response.data);
     } catch (error: any) {
-      console.error("Poly Haven Proxy error:", error.message);
       return res.status(500).json({ error: "Failed to fetch from Poly Haven API", message: error.message });
     }
   });
@@ -640,12 +992,10 @@ loadstring(game:HttpGet("${currentRawUrl}"))()`;
       
       return res.json(response.data);
     } catch (error: any) {
-      console.error("Poly Haven Files Proxy error:", error.message);
       return res.status(500).json({ error: "Failed to fetch asset files list", message: error.message });
     }
   });
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
