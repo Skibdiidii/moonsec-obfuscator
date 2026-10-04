@@ -8,8 +8,9 @@ import { ObfuscateModal } from './components/ObfuscateModal';
 import { FileUploaderModal } from './components/FileUploaderModal';
 import { WhatsNewModal } from './components/WhatsNewModal';
 import { ScriptVaultModal } from './components/ScriptVaultModal';
+import { DeobfuscateModal } from './components/DeobfuscateModal';
 import { motion, AnimatePresence } from 'motion/react';
-import { Code2, Bot, Search, PanelRightClose, PanelRightOpen, Upload, Sparkles, Database } from 'lucide-react';
+import { Code2, Bot, Search, PanelRightClose, PanelRightOpen, Upload, Sparkles, Database, Unlock } from 'lucide-react';
 import './firebase';
 import { generateId } from './utils';
 
@@ -96,6 +97,7 @@ export default function App() {
   const [isUploaderModalOpen, setIsUploaderModalOpen] = useState(false);
   const [isWhatsNewModalOpen, setIsWhatsNewModalOpen] = useState(false);
   const [isScriptVaultOpen, setIsScriptVaultOpen] = useState(false);
+  const [isDeobfuscateModalOpen, setIsDeobfuscateModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [activeTab, setActiveTab] = useState<'explorer' | 'search' | 'none'>('explorer');
 
@@ -148,7 +150,7 @@ export default function App() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const lastSeen = localStorage.getItem('fsociety_last_seen_version');
-      if (!lastSeen || lastSeen !== 'v2.6.0') {
+      if (!lastSeen || lastSeen !== 'v2.7.0') {
         setIsWhatsNewModalOpen(true);
       }
     }
@@ -640,6 +642,15 @@ export default function App() {
         </div>
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button
+            onClick={() => setIsDeobfuscateModalOpen(true)}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all shadow-sm"
+            title="MoonSec & Lua Deobfuscator"
+          >
+            <Unlock size={14} className="text-emerald-400" />
+            <span className="hidden sm:inline">Deobfuscator</span>
+          </button>
+
+          <button
             onClick={() => setIsScriptVaultOpen(true)}
             className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all shadow-sm"
             title="Script Recovery Vault & Arsenal"
@@ -650,12 +661,12 @@ export default function App() {
 
           <button
             onClick={() => setIsWhatsNewModalOpen(true)}
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-rose-500/10 to-indigo-500/10 hover:from-rose-500/20 hover:to-indigo-500/20 text-rose-400 border border-rose-500/30 transition-all shadow-sm"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-indigo-500/10 hover:from-emerald-500/20 hover:to-indigo-500/20 text-emerald-400 border border-emerald-500/30 transition-all shadow-sm"
             title="View Release Notes"
           >
-            <Sparkles size={14} className="text-rose-400" />
+            <Sparkles size={14} className="text-emerald-400" />
             <span className="hidden sm:inline">What's New</span>
-            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300">v2.6.0</span>
+            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300">v2.7.0</span>
           </button>
 
           <button
@@ -685,6 +696,14 @@ export default function App() {
              title="Explorer"
            >
              <Code2 size={20} strokeWidth={1.5} />
+           </button>
+
+           <button 
+             onClick={() => setIsDeobfuscateModalOpen(true)}
+             className="p-2.5 rounded-lg transition-colors text-gray-500 hover:bg-gray-200 dark:hover:bg-white/5"
+             title="MoonSec Deobfuscator"
+           >
+             <Unlock size={20} strokeWidth={1.5} />
            </button>
 
            <button 
@@ -770,6 +789,7 @@ export default function App() {
                 onLink={handleLink}
                 onSafeLink={handleSafeLink}
                 onObfuscate={handleObfuscate}
+                onDeobfuscate={() => setIsDeobfuscateModalOpen(true)}
                 onOpenUploader={() => setIsUploaderModalOpen(true)}
               />
             </motion.div>
@@ -790,6 +810,17 @@ export default function App() {
         onDownloadCode={handleDownload}
         onSafeLink={handleSafeLink}
         currentCode={currentCode}
+      />
+
+      <DeobfuscateModal
+        isOpen={isDeobfuscateModalOpen}
+        onClose={() => setIsDeobfuscateModalOpen(false)}
+        onApplyCode={(newCode) => {
+          if (activeFileId) {
+            setCode(prev => ({ ...prev, [activeFileId]: newCode }));
+          }
+        }}
+        initialCode={currentCode}
       />
 
       <FileUploaderModal

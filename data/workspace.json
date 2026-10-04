@@ -1,0 +1,43 @@
+{
+  "files": [
+    {
+      "id": "src",
+      "name": "src",
+      "type": "folder",
+      "children": [
+        {
+          "id": "main.server.lua",
+          "name": "Main.server.lua",
+          "type": "file",
+          "content": "print(\"Hello, friend. Server Started.\")\n"
+        },
+        {
+          "id": "player_handler.server.lua",
+          "name": "PlayerHandler.server.lua",
+          "type": "file",
+          "content": "game.Players.PlayerAdded:Connect(function(player)\n\tprint(player.Name .. \" joined the mainframe\")\nend)"
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "name": "config",
+      "type": "folder",
+      "children": [
+        {
+          "id": "settings.lua",
+          "name": "Settings.lua",
+          "type": "file",
+          "content": "return {\n\tMaxPlayers = 50,\n\tRootAccess = false\n}"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "main.server.lua": "print(\"Hello, friend. Server Started.\")\n",
+    "player_handler.server.lua": "game.Players.PlayerAdded:Connect(function(player)\n\tprint(player.Name .. \" joined the mainframe\")\nend)",
+    "settings.lua": "return {\n\tMaxPlayers = 50,\n\tRootAccess = false\n}"
+  },
+  "activeFileId": "main.server.lua",
+  "updatedAt": 1791126390521
+}

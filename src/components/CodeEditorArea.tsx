@@ -3,7 +3,7 @@ import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-lua';
 import 'prismjs/themes/prism-tomorrow.css';
-import { Download, Copy, Code2, Shield, Lock, AlignLeft, Upload, Globe } from 'lucide-react';
+import { Download, Copy, Code2, Shield, Lock, AlignLeft, Upload, Globe, Unlock } from 'lucide-react';
 
 function formatLua(code: string): string {
   const lines = code.split('\n');
@@ -66,6 +66,7 @@ export function CodeEditorArea({
   onLink,
   onSafeLink,
   onObfuscate,
+  onDeobfuscate,
   onOpenUploader
 }: {
   code: string;
@@ -77,6 +78,7 @@ export function CodeEditorArea({
   onLink?: () => void;
   onSafeLink?: () => void;
   onObfuscate?: () => void;
+  onDeobfuscate?: () => void;
   onOpenUploader?: () => void;
 }) {
   const editorRef = React.useRef<any>(null);
@@ -158,6 +160,12 @@ export function CodeEditorArea({
             <button onClick={onObfuscate} className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 border border-gray-200 dark:border-white/10 rounded-md transition-colors" title="Obfuscate code">
               <Lock size={14} className="mr-1.5 text-indigo-500" />
               <span className="hidden sm:inline">Obfuscate</span>
+            </button>
+          )}
+          {onDeobfuscate && (
+            <button onClick={onDeobfuscate} className="flex items-center px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 border border-emerald-500/20 rounded-md transition-colors shadow-sm" title="Deobfuscate MoonSec / Lua code">
+              <Unlock size={14} className="mr-1.5 text-emerald-500" />
+              <span className="hidden sm:inline">Deobfuscate</span>
             </button>
           )}
           {onLink && (

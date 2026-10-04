@@ -1,6 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Shield, Zap, Upload, CheckCircle2, History, Flame, Lock, Database } from 'lucide-react';
+import { 
+  Sparkles, X, Shield, Zap, Upload, CheckCircle2, History, 
+  Flame, Lock, Database, Unlock, ChevronUp, ChevronDown, Play, Pause 
+} from 'lucide-react';
 
 export interface ChangelogRelease {
   version: string;
@@ -10,7 +13,7 @@ export interface ChangelogRelease {
   tagColor: string;
   summary: string;
   highlights: {
-    iconName?: 'zap' | 'shield' | 'upload' | 'sparkles' | 'check' | 'lock' | 'database';
+    iconName?: 'zap' | 'shield' | 'upload' | 'sparkles' | 'check' | 'lock' | 'database' | 'unlock';
     title: string;
     description: string;
   }[];
@@ -18,9 +21,33 @@ export interface ChangelogRelease {
 
 const RELEASES: ChangelogRelease[] = [
   {
-    version: 'v2.6.0',
+    version: 'v2.7.0',
     date: 'October 2026',
     isLatest: true,
+    tag: 'MoonSec Deobfuscator',
+    tagColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    summary: 'Full-scale Lua & MoonSec Deobfuscation Suite featuring multi-stage VM bytecode unpacking, identifier normalization, and constant folding.',
+    highlights: [
+      {
+        iconName: 'unlock',
+        title: 'MoonSec & VM Bytecode Unpacker',
+        description: 'Automatically analyzes and decrypts virtualized chunk tables, rolling ciphers, and string tables from MoonSec, Fsociety, IronBrew, and Lua VM loaders.'
+      },
+      {
+        iconName: 'zap',
+        title: 'Identifier Normalizer & Lookalike Cleaner',
+        description: 'Replaces indecipherable lookalike variable names and obfuscated hashes with clean sequential identifiers while strictly preserving Roblox globals and services.'
+      },
+      {
+        iconName: 'sparkles',
+        title: 'Constant Folding & AST Beautifier',
+        description: 'Simplifies mathematical expressions, merges concatenated string literals, inlines constant lookup tables, and reformats into clean Lua syntax.'
+      }
+    ]
+  },
+  {
+    version: 'v2.6.0',
+    date: 'October 2026',
     tag: 'Roblox Cloud & Anti-Scraper',
     tagColor: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
     summary: 'Roblox raw loadstring cloud endpoint, anti-scraper inspection shield, and permanent backend persistence with script recovery vault.',
@@ -189,6 +216,7 @@ interface WhatsNewModalProps {
 
 export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -196,10 +224,39 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    let intervalId: any;
+    if (isAutoScrolling && scrollRef.current) {
+      intervalId = setInterval(() => {
+        if (!scrollRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        if (scrollTop + clientHeight >= scrollHeight - 2) {
+          scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          scrollRef.current.scrollTop += 2;
+        }
+      }, 30);
+    }
+    return () => clearInterval(intervalId);
+  }, [isAutoScrolling]);
+
   if (!isOpen) return null;
+
+  const scrollToTop = () => {
+    setIsAutoScrolling(false);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const scrollToBottom = () => {
+    setIsAutoScrolling(false);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  };
 
   const renderIcon = (name?: string) => {
     switch (name) {
+      case 'unlock': return <Unlock size={14} className="text-emerald-400" />;
       case 'zap': return <Zap size={14} className="text-amber-400" />;
       case 'shield': return <Shield size={14} className="text-indigo-400" />;
       case 'upload': return <Upload size={14} className="text-emerald-400" />;
@@ -227,7 +284,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               <div>
                 <h2 className="text-base sm:text-lg font-semibold text-white tracking-wide flex items-center gap-2">
                   What's New in Fsociety
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono font-bold">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono font-bold">
                     {RELEASES[0].version}
                   </span>
                 </h2>
@@ -244,6 +301,40 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             </button>
           </div>
 
+          <div className="px-5 py-2 bg-zinc-950/40 border-b border-white/5 flex items-center justify-between gap-2 shrink-0 text-xs">
+            <div className="flex items-center gap-2 text-zinc-400">
+              <History size={13} />
+              <span>Scroll history to explore all releases</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsAutoScrolling(!isAutoScrolling)}
+                className={`px-2 py-1 rounded text-[11px] flex items-center gap-1 border transition-colors ${
+                  isAutoScrolling 
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                    : 'bg-zinc-800 text-zinc-400 border-white/5 hover:text-white'
+                }`}
+              >
+                {isAutoScrolling ? <Pause size={10} /> : <Play size={10} />}
+                <span>{isAutoScrolling ? 'Pause Scroll' : 'Auto Scroll'}</span>
+              </button>
+              <button
+                onClick={scrollToTop}
+                className="p-1 rounded bg-zinc-800 text-zinc-400 hover:text-white border border-white/5"
+                title="Scroll to Latest (v2.7.0)"
+              >
+                <ChevronUp size={14} />
+              </button>
+              <button
+                onClick={scrollToBottom}
+                className="p-1 rounded bg-zinc-800 text-zinc-400 hover:text-white border border-white/5"
+                title="Scroll to Oldest (v2.0.0)"
+              >
+                <ChevronDown size={14} />
+              </button>
+            </div>
+          </div>
+
           <div 
             ref={scrollRef} 
             className="p-5 flex-1 overflow-y-auto custom-scrollbar space-y-6 scroll-smooth"
@@ -253,7 +344,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <div key={release.version} className="relative group">
                   <div className={`absolute -left-[27px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-colors ${
                     release.isLatest 
-                      ? 'bg-rose-500 border-rose-300 ring-4 ring-rose-500/20' 
+                      ? 'bg-emerald-500 border-emerald-300 ring-4 ring-emerald-500/20' 
                       : 'bg-zinc-800 border-zinc-600 group-hover:border-zinc-400'
                   }`} />
 
@@ -262,14 +353,14 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                       <span className="font-mono text-sm font-bold text-white tracking-wide">
                         {release.version}
                       </span>
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${release.tagColor}`}>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded border ${release.tagColor}`}>
                         {release.tag}
                       </span>
                       <span className="text-xs text-zinc-500">
                         {release.date}
                       </span>
                       {release.isLatest && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
                           Current Version
                         </span>
                       )}
@@ -302,10 +393,9 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
           </div>
 
           <div className="px-5 py-3.5 border-t border-white/10 bg-zinc-950/80 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-mono">
-              <History size={13} />
-              <span>Scroll down or up to explore all historical releases</span>
-            </div>
+            <span className="text-xs text-zinc-500 font-mono">
+              v2.7.0 • Scroll up or down to review changelogs
+            </span>
             <button
               onClick={onClose}
               className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"

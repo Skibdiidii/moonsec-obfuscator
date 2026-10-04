@@ -63,3 +63,21 @@ export type ObfuscationStats = {
   originalSize: number;
   obfuscatedSize: number;
 };
+
+export type DeobfuscateOptions = {
+  unpackVmBytecode: boolean;
+  normalizeIdentifiers: boolean;
+  foldConstants: boolean;
+  decodeHexStrings: boolean;
+  beautify: boolean;
+  aiAssist: boolean;
+};
+
+export type DeobfuscationStats = {
+  stringsDecrypted: number;
+  variablesNormalized: number;
+  expressionsFolded: number;
+  vmChunksUnpacked: number;
+  originalSize: number;
+  deobfuscatedSize: number;
+};

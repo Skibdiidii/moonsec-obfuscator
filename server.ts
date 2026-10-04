@@ -6,6 +6,7 @@ import scraper from "ddg-scraper";
 import axios from "axios";
 import fs from "fs";
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { deobfuscateLua } from "./src/deobfuscator.ts";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -291,7 +292,7 @@ function renderSecurityRejectionHtml(ip: string): string {
 </head>
 <body>
   <div class="panel">
-    <div class="badge">ACCESS TERMINATED // HTTP 403</div>
+    <div class="badge">ACCESS TERMINATED :: HTTP 403</div>
     <h1>DIRECT INSPECTION PROHIBITED</h1>
     <p>This endpoint is a protected Roblox raw node. Direct browser rendering and automated source dumping are permanently disabled to prevent unauthorized code extraction.</p>
     <div class="box">
@@ -867,6 +868,65 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
     } catch (error: any) {
       console.error("Obfuscation error:", error);
       res.status(500).json({ error: error.message || "Failed to obfuscate script" });
+    }
+  });
+
+  app.post("/api/deobfuscate", async (req, res) => {
+    try {
+      const { code, options } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "Missing or invalid code payload" });
+      }
+
+      let result = deobfuscateLua(code, options);
+
+      if (options?.aiAssist === true) {
+        try {
+          const systemInstruction = "You are an expert Lua reverse engineer and code deobfuscation engine. Clean, deobfuscate, and reconstruct this Lua script. Restore meaningful variable names based on Roblox services (Players, Workspace, Character, HumanoidRootPart, etc.). Remove all dead code, junk conditions, and return ONLY valid Lua code inside ```lua ... ``` markdown block.";
+          const promptText = "Deobfuscate and clean this Lua code:\n" + result.code;
+          
+          let aiText = "";
+          try {
+            const mistralResponse = await mistralClient.chat.complete({
+              model: "codestral-latest",
+              messages: [
+                { role: "system", content: systemInstruction },
+                { role: "user", content: promptText }
+              ]
+            });
+            aiText = typeof mistralResponse.choices?.[0]?.message?.content === "string" ? mistralResponse.choices[0].message.content : "";
+          } catch (e) {}
+
+          if (!aiText) {
+            for (const model of ["gemini-3.1-flash-lite", "gemini-3.8-flash"]) {
+              try {
+                const response = await ai.models.generateContent({
+                  model,
+                  contents: [{ role: "user", parts: [{ text: `${systemInstruction}\n\n${promptText}` }] }]
+                });
+                if (response.text) {
+                  aiText = response.text;
+                  break;
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (aiText) {
+            const match = aiText.match(/```(?:lua)?\n([\s\S]*?)```/);
+            if (match && match[1]) {
+              result.code = match[1].trim();
+            }
+          }
+        } catch (aiErr) {
+          console.warn("AI deobfuscation refinement skipped, local result returned");
+        }
+      }
+
+      return res.json({ code: result.code, stats: result.stats });
+    } catch (error: any) {
+      console.error("Deobfuscation error:", error);
+      return res.status(500).json({ error: error.message || "Failed to deobfuscate script" });
     }
   });
 
