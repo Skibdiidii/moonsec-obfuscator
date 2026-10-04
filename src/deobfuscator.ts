@@ -1,4 +1,7 @@
 import { DeobfuscateOptions, DeobfuscationStats } from './types';
+import * as fengari from 'fengari';
+
+const { lua, lauxlib, lualib, to_luastring } = fengari;
 
 const LUA_KEYWORDS = new Set([
   'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function',
@@ -150,6 +153,144 @@ function inlineLookupTables(code: string): { code: string; count: number } {
   return { code: working, count };
 }
 
+export function emulateSandboxedExecution(source: string): { code: string; success: boolean } {
+  try {
+    const L = lauxlib.luaL_newstate();
+    lualib.luaL_openlibs(L);
+
+    const hookPreamble = `
+      local intercepted = nil
+      _G.getgenv = function() return _G end
+      _G.getfenv = function() return _G end
+      _G.setfenv = function(f, env) return f end
+      _G.identifyexecutor = function() return "MoonSecDeobfuscator" end
+      _G.syn = {
+        loadstring = function(s) intercepted = s; return function() end end,
+        request = function() return { Body = "{}" } end
+      }
+      _G.http = { request = function() return { Body = "{}" } end }
+      _G.request = function() return { Body = "{}" } end
+
+      local old_loadstring = _G.loadstring
+      _G.loadstring = function(s)
+        intercepted = s
+        return function() end
+      end
+
+      local old_load = _G.load
+      _G.load = function(s)
+        if type(s) == "string" then
+          intercepted = s
+        end
+        return function() end
+      end
+
+      _G.game = setmetatable({
+        HttpGet = function(self, url)
+          return "print('HttpGet intercepted: " .. tostring(url) .. "')"
+        end,
+        HttpPost = function() return "{}" end,
+        GetService = function(self, svc)
+          return setmetatable({ Name = svc, className = svc }, {
+            __index = function(t, k)
+              if k == "LocalPlayer" then
+                return setmetatable({
+                  Name = "LocalPlayer",
+                  Character = setmetatable({}, { __index = function() return setmetatable({}, { __index = function() return function() end end }) end })
+                }, { __index = function() return function() end end })
+              end
+              return function() return setmetatable({}, { __index = function() return function() end end }) end
+            end
+          })
+        end
+      }, {
+        __index = function(t, k)
+          return function() return setmetatable({}, { __index = function() return function() end end }) end
+        end
+      })
+      _G.workspace = _G.game
+      _G.script = setmetatable({}, { __index = function() return function() end end })
+      _G.task = {
+        wait = function() end,
+        defer = function() end,
+        spawn = function(f, ...) if type(f) == "function" then pcall(f, ...) end end,
+        delay = function(t, f, ...) if type(f) == "function" then pcall(f, ...) end end
+      }
+      _G.tick = function() return 100000 end
+      _G.time = function() return 100 end
+
+      _G.__get_intercepted = function()
+        return intercepted
+      end
+    `;
+
+    lauxlib.luaL_dostring(L, to_luastring(hookPreamble));
+
+    const sanitizedSource = source
+      .replace(/os\.exit\s*\([^)]*\)/g, '')
+      .replace(/while\s+true\s+do\s+end/g, '')
+      .replace(/repeat\s+until\s+false/g, '');
+
+    lauxlib.luaL_dostring(L, to_luastring(sanitizedSource));
+    lauxlib.luaL_dostring(L, to_luastring("return _G.__get_intercepted()"));
+
+    const intercepted = lua.lua_tojsstring(L, -1);
+    if (intercepted && typeof intercepted === 'string' && intercepted.trim().length > 0) {
+      return { code: intercepted.trim(), success: true };
+    }
+  } catch (err) {}
+
+  return { code: source, success: false };
+}
+
+function extractIronBrewByteStringConstants(source: string): { strings: string[]; xorKey: number | null } {
+  const xorMatch = source.match(/BitXOR\s*\(\s*(?:Byte\([^)]+\)|[a-zA-Z0-9_]+)\s*,\s*(\d{1,4})\s*\)/);
+  const xorKey = xorMatch ? parseInt(xorMatch[1], 10) : null;
+
+  const strings: string[] = [];
+
+  const byteStringMatch = source.match(/(?:ByteString|Byte)\s*=\s*"((?:[^"\\]|\\.)*)"/);
+  if (byteStringMatch && xorKey !== null) {
+    const raw = byteStringMatch[1];
+    const bytes: number[] = [];
+    let i = 0;
+    while (i < raw.length) {
+      if (raw[i] === '\\' && i + 1 < raw.length) {
+        if (/\d/.test(raw[i + 1])) {
+          let numDigits = 1;
+          while (numDigits < 3 && i + 1 + numDigits <= raw.length && /\d/.test(raw[i + 1 + numDigits])) {
+            numDigits++;
+          }
+          bytes.push(parseInt(raw.substr(i + 1, numDigits), 10));
+          i += 1 + numDigits;
+          continue;
+        } else if (raw[i + 1] === 'x' && i + 3 <= raw.length) {
+          bytes.push(parseInt(raw.substr(i + 2, 2), 16));
+          i += 4;
+          continue;
+        }
+      }
+      bytes.push(raw.charCodeAt(i));
+      i++;
+    }
+
+    const decryptedChars: string[] = [];
+    for (let b = 0; b < bytes.length; b++) {
+      decryptedChars.push(String.fromCharCode(bytes[b] ^ xorKey));
+    }
+    const fullDecrypted = decryptedChars.join('');
+
+    const printableMatches = fullDecrypted.match(/[a-zA-Z0-9_.:/\\-]{3,}/g) || [];
+    for (const pm of printableMatches) {
+      if (!strings.includes(pm)) {
+        strings.push(pm);
+      }
+    }
+  }
+
+  return { strings, xorKey };
+}
+
 function unpackMoonsecVmChunks(source: string): { unpackedCode: string; chunksFound: number; success: boolean } {
   const chunkArrayMatch = source.match(/\{\s*(?:"(?:[^"\\]|\\.)*"\s*,\s*)*(?:"(?:[^"\\]|\\.)*"\s*)\}/);
   if (!chunkArrayMatch) {
@@ -222,13 +363,13 @@ function unpackMoonsecVmChunks(source: string): { unpackedCode: string; chunksFo
     if (val) candidateKeys.push(parseInt(val[1], 10));
   }
 
-  for (let k = 0; k < 256; k += 8) {
+  for (let k = 0; k < 256; k += 4) {
     if (!candidateKeys.includes(k)) {
       candidateKeys.push(k);
     }
   }
 
-  const candidateSteps = [detectedStep, 12, 10, 16, 20, 23, 24, 7, 19, 31, 5];
+  const candidateSteps = [detectedStep, 12, 10, 16, 20, 23, 24, 7, 19, 31, 5, 8, 14, 22];
 
   for (const k of candidateKeys) {
     for (const step of candidateSteps) {
@@ -256,7 +397,7 @@ function unpackMoonsecVmChunks(source: string): { unpackedCode: string; chunksFo
     }
   }
 
-  for (const k of [0, 42, 69, 128, 255]) {
+  for (const k of [0, 42, 69, 128, 255, 137]) {
     const out: string[] = [];
     for (let c = 0; c < chunksBytes.length; c++) {
       const chunk = chunksBytes[c];
@@ -450,7 +591,7 @@ export function formatLuaIndentation(code: string): string {
 export function deobfuscateLua(
   source: string,
   options: Partial<DeobfuscateOptions> = {}
-): { code: string; stats: DeobfuscationStats } {
+): { code: string; stats: DeobfuscationStats; extractedConstants?: string[] } {
   const opts: DeobfuscateOptions = {
     unpackVmBytecode: options.unpackVmBytecode !== false,
     normalizeIdentifiers: options.normalizeIdentifiers !== false,
@@ -468,13 +609,22 @@ export function deobfuscateLua(
   let variablesNormalized = 0;
   let expressionsFolded = 0;
 
-  if (opts.unpackVmBytecode) {
+  const sandboxedResult = emulateSandboxedExecution(workingCode);
+  if (sandboxedResult.success && sandboxedResult.code.length > 0) {
+    workingCode = sandboxedResult.code;
+    vmChunksUnpacked += 1;
+  }
+
+  if (opts.unpackVmBytecode && workingCode === source) {
     const vmResult = unpackMoonsecVmChunks(workingCode);
     if (vmResult.success) {
       workingCode = vmResult.unpackedCode;
       vmChunksUnpacked = vmResult.chunksFound;
     }
   }
+
+  const ironBrewInfo = extractIronBrewByteStringConstants(workingCode);
+  const extractedConstants = ironBrewInfo.strings;
 
   if (opts.decodeHexStrings) {
     const charCallResult = decodeStringCharCalls(workingCode);
@@ -527,6 +677,7 @@ export function deobfuscateLua(
       vmChunksUnpacked,
       originalSize,
       deobfuscatedSize
-    }
+    },
+    extractedConstants
   };
 }

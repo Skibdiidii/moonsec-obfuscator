@@ -26,6 +26,7 @@
     "dotenv": "^17.2.3",
     "duck-duck-scrape": "^2.2.7",
     "express": "^4.21.2",
+    "fengari": "^0.1.5",
     "firebase": "^12.16.0",
     "google-it": "^1.6.4",
     "google-sr": "^6.0.0",

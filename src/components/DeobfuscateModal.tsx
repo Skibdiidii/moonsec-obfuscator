@@ -58,7 +58,7 @@ export function DeobfuscateModal({
     foldConstants: true,
     decodeHexStrings: true,
     beautify: true,
-    aiAssist: false
+    aiAssist: true
   });
 
   React.useEffect(() => {

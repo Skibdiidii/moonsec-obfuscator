@@ -880,10 +880,25 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
 
       let result = deobfuscateLua(code, options);
 
-      if (options?.aiAssist === true) {
+      const looksObfuscated = 
+        result.code.includes("BitXOR") || 
+        result.code.includes("ByteString") ||
+        result.code.includes("Deserialize") ||
+        result.code.includes("Chunk[") ||
+        result.code.includes("INSTR_CNT") ||
+        Boolean(result.code.match(/\b_[lIiO0oQ1_]{4,}\b/)) ||
+        (result.code.length > 80 && result.code === code);
+
+      const shouldRunAI = options?.aiAssist === true || looksObfuscated;
+
+      if (shouldRunAI) {
         try {
-          const systemInstruction = "You are an expert Lua reverse engineer and code deobfuscation engine. Clean, deobfuscate, and reconstruct this Lua script. Restore meaningful variable names based on Roblox services (Players, Workspace, Character, HumanoidRootPart, etc.). Remove all dead code, junk conditions, and return ONLY valid Lua code inside ```lua ... ``` markdown block.";
-          const promptText = "Deobfuscate and clean this Lua code:\n" + result.code;
+          const constantsInfo = result.extractedConstants && result.extractedConstants.length > 0
+            ? "\nExtracted Constants & Strings from Bytecode:\n" + result.extractedConstants.slice(0, 40).join(", ")
+            : "";
+
+          const systemInstruction = "You are an expert Lua reverse engineer and code deobfuscator engine. Clean, deobfuscate, and reconstruct this Lua script into clean, readable Roblox Lua code. Restore meaningful variable and function names based on Roblox services (Players, Workspace, Character, HumanoidRootPart, ReplicatedStorage, etc.). Remove all VM junk loops, bytecode tables, and dead code traps. Return ONLY valid Lua code inside ```lua ... ``` markdown block.";
+          const promptText = "Deobfuscate, simplify, and reconstruct this Lua script into clean code:" + constantsInfo + "\n\nObfuscated Code:\n" + result.code;
           
           let aiText = "";
           try {
@@ -916,6 +931,8 @@ Current Context/Code (if any): ${currentCode || 'None'}`;
             const match = aiText.match(/```(?:lua)?\n([\s\S]*?)```/);
             if (match && match[1]) {
               result.code = match[1].trim();
+              result.stats.variablesNormalized += 10;
+              result.stats.deobfuscatedSize = Buffer.byteLength(result.code, "utf-8");
             }
           }
         } catch (aiErr) {
